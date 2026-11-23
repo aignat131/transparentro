@@ -10,7 +10,7 @@ test("căutare → profil firmă → contract", async ({ page }) => {
   const name = (await first.textContent())!.trim();
   const word = name.split(/\s+/).find((w) => w.length > 3 && !/persoan/i.test(w)) ?? name.split(" ")[0];
 
-  await page.goto("/");
+  await page.goto("/cautare");
   const box = page.getByRole("searchbox", { name: /caută o instituție/i }).first();
   await box.fill(word);
   await box.press("Enter");

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-prod-api",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "cd frontend; $env:NEXT_PUBLIC_API_URL='https://transparentro-api.vercel.app'; npx next dev -p 3100"],
+      "port": 3100
+    }
+  ]
+}

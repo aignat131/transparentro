@@ -84,23 +84,23 @@ export function TotalsTable({ rows, linkBase, caption, nameHeader = "Nume" }: {
         <caption className="sr-only">{caption}</caption>
         <thead className="border-b text-left text-muted-foreground">
           <tr>
-            <th scope="col" className="py-2 pr-3 font-medium">#</th>
+            <th scope="col" className="hidden py-2 pr-3 font-medium sm:table-cell">#</th>
             <th scope="col" className="py-2 pr-3 font-medium">{nameHeader}</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">Contracte</th>
+            <th scope="col" className="hidden py-2 pr-3 text-right font-medium sm:table-cell">Contracte</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">Total</th>
-            <th scope="col" className="py-2 text-right font-medium">Pondere</th>
+            <th scope="col" className="hidden py-2 text-right font-medium sm:table-cell">Pondere</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={`${r.key}-${r.name}-${i}`} className="border-b last:border-0">
-              <td className="py-2 pr-3 text-muted-foreground tabular">{i + 1}</td>
+              <td className="hidden py-2 pr-3 text-muted-foreground tabular sm:table-cell">{i + 1}</td>
               <td className="py-2 pr-3">
                 {linkBase && r.key ? <Link href={`${linkBase}/${encodeURIComponent(r.key)}`}>{r.name}</Link> : r.name}
               </td>
-              <td className="py-2 pr-3 text-right tabular">{r.count}</td>
+              <td className="hidden py-2 pr-3 text-right tabular sm:table-cell">{r.count}</td>
               <td className="whitespace-nowrap py-2 pr-3 text-right tabular">{lei(r.total_ron)}</td>
-              <td className="py-2 text-right tabular">{pct(r.share, 1)}</td>
+              <td className="hidden py-2 text-right tabular sm:table-cell">{pct(r.share, 1)}</td>
             </tr>
           ))}
         </tbody>
