@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from tro.config import get_settings
 
@@ -12,13 +13,21 @@ class Base(DeclarativeBase):
 
 
 _engine = None
+
+
+def _make_engine(url: str):
+    if get_settings().serverless:
+        return create_engine(url, poolclass=NullPool, future=True)
+    return create_engine(url, pool_pre_ping=True, future=True)
+
+
 _SessionLocal: sessionmaker[Session] | None = None
 
 
 def get_engine():
     global _engine, _SessionLocal
     if _engine is None:
-        _engine = create_engine(get_settings().database_url, pool_pre_ping=True, future=True)
+        _engine = _make_engine(get_settings().database_url)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 
@@ -28,7 +37,7 @@ def reset_engine(url: str | None = None) -> None:
     global _engine, _SessionLocal
     if _engine is not None:
         _engine.dispose()
-    _engine = create_engine(url or get_settings().database_url, pool_pre_ping=True, future=True)
+    _engine = _make_engine(url or get_settings().database_url)
     _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
 
 

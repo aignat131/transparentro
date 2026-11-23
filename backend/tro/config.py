@@ -1,8 +1,9 @@
 """Configurare centralizată (variabile de mediu, vezi .env.example)."""
 
+import os
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -50,6 +51,20 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
 
     risk_thresholds_path: str = Field(default="")
+
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, v: str) -> str:
+        # Neon/Heroku dau „postgres://” sau „postgresql://”; SQLAlchemy are nevoie de driverul psycopg 3
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix) :]
+        return v
+
+    @property
+    def serverless(self) -> bool:
+        """Pe Vercel (sau DB_NULLPOOL=1) nu ținem conexiuni deschise între invocări."""
+        return bool(os.environ.get("VERCEL") or os.environ.get("DB_NULLPOOL"))
 
     @property
     def target_county_list(self) -> list[str]:

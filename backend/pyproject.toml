@@ -35,6 +35,10 @@ dev = [
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[tool.vercel]
+# Vercel: aplicația FastAPI (obiectul `app`) din tro/api/main.py
+entrypoint = "tro.api.main:app"
+
 [tool.setuptools.packages.find]
 include = ["tro*"]
 
