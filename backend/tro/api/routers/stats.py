@@ -158,15 +158,15 @@ def meta(
     db: Session = Depends(get_db),
 ):
     def compute():
-        yq = select(distinct(Contract.year)).where(Contract.year.is_not(None))
+        yq = select(Contract.year).distinct().where(Contract.year.is_not(None))
         pq = select(Contract.procedure_type, func.count()).where(Contract.procedure_type.is_not(None))
         if county:
             yq = yq.where(Contract.county_code == county)
             pq = pq.where(Contract.county_code == county)
         years = sorted([y for y in db.execute(yq).scalars() if y is not None], reverse=True)
         procs = [p for p, _ in db.execute(pq.group_by(Contract.procedure_type).order_by(func.count().desc())).all()]
-        counties_with_data = set(db.execute(select(distinct(Contract.county_code))).scalars())
-        atypes = [t for t in db.execute(select(distinct(Authority.authority_type))).scalars() if t]
+        counties_with_data = set(db.execute(select(Contract.county_code).distinct()).scalars())
+        atypes = [t for t in db.execute(select(Authority.authority_type).distinct()).scalars() if t]
         return {
             "default_county": county,
             "counties": [
