@@ -1,0 +1,41 @@
+# Praguri pentru semnalele de verificat. Modificați aici, apoi rulați `make risk`.
+# Semnalele NU sunt acuzații: indică doar situații care merită o privire mai atentă.
+
+# Pragurile legale pentru achiziția directă (Legea 98/2016, art. 7 alin. (5), valori fără TVA,
+# în forma modificată prin Legea 208/2022). VERIFICAȚI valorile în vigoare înainte de publicare:
+# pragurile se pot schimba prin lege/ordonanță. Se aplică după data contractului.
+direct_award_thresholds:
+  - valid_from: "2022-07-14"
+    goods_services_ron: 270120
+    works_ron: 900400
+  # valori anterioare (relevante doar pentru date istorice; de verificat dacă importați ani vechi)
+  - valid_from: "2018-01-01"
+    goods_services_ron: 135060
+    works_ron: 450200
+
+new_company:
+  max_days_since_founding: 183   # ~6 luni
+  min_contract_value_ron: 0
+
+single_bidder:
+  max_offers: 1
+
+fragmentation:
+  # grupăm achizițiile directe pe (autoritate, furnizor, an, primele N cifre CPV)
+  cpv_prefix_digits: 3
+  min_count: 3                   # cel puțin N achiziții directe în grup
+  min_sum_ratio: 1.0             # suma lor depășește pragul legal × acest raport
+  near_threshold_ratio: 0.8      # sau: cel puțin `min_near_count` achiziții ≥ 80% din prag
+  min_near_count: 2
+
+amendment_increase:
+  min_increase_pct: 20
+
+public_revenue_share:
+  min_share: 0.5                 # contracte publice ≥ 50% din cifra de afaceri
+  min_turnover_ron: 1            # ignorăm firmele fără cifră de afaceri raportată
+
+concentration:
+  min_share: 0.30                # un furnizor primește > 30% din cheltuielile anuale
+  min_authority_total_ron: 200000
+  min_authority_contracts: 5

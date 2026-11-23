@@ -1,0 +1,50 @@
+name: ETL zilnic
+
+# Rulează importul incremental în fiecare zi la 04:15 (ora României ≈ 02:15 UTC).
+# Necesită secretul PROD_DATABASE_URL (postgresql+psycopg://...) al bazei de producție.
+on:
+  schedule:
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Anii SEAP (ex. 2025,2026)"
+        required: false
+
+concurrency:
+  group: etl
+  cancel-in-progress: false
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      TARGET_COUNTIES: ${{ vars.TARGET_COUNTIES || 'SB' }}
+      SEAP_YEARS: ${{ inputs.years || vars.SEAP_YEARS || '2025,2026' }}
+      USER_AGENT: ${{ vars.ETL_USER_AGENT || 'TransparentRO-ETL/0.1 (proiect civic)' }}
+      DATA_DIR: ${{ github.workspace }}/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Cache fișiere descărcate
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: etl-data-${{ github.run_id }}
+          restore-keys: etl-data-
+      - working-directory: backend
+        run: pip install -e .
+      - name: Migrări
+        working-directory: backend
+        run: alembic upgrade head
+      - name: Import (incremental) + semnale + alerte
+        working-directory: backend
+        run: |
+          python -m tro.etl all
+          python -m tro.etl alerts
+          python -m tro.etl status
