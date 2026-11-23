@@ -93,6 +93,23 @@ Pentru o eventuală sursă OCDS: mapați `buyer`→`Authority`, `awards[].suppli
 - **Explicații AI** (`GET /explain/{id}`, butonul „Explică-mi contractul”): `ANTHROPIC_API_KEY=...`
   (gol = dezactivat), `ANTHROPIC_MODEL` (implicit `claude-opus-5-5`). Explicațiile sunt salvate și refolosite.
 
+## Deploy (Vercel + Neon)
+
+Producție: site https://transparentro-web.vercel.app · API https://transparentro-api.vercel.app/docs
+
+- Două proiecte Vercel din același repo: `transparentro-api` (din `backend/`, FastAPI detectat prin
+  `[tool.vercel] entrypoint` în `pyproject.toml` + `backend/vercel.json`) și `transparentro-web` (din `frontend/`).
+  Ambele în regiunea `fra1`, lângă baza de date.
+- Baza: Neon Postgres (Vercel Marketplace, plan gratuit, Frankfurt), conectată la `transparentro-api`
+  (`DATABASE_URL` cu pooling; codul adaugă singur driverul psycopg și folosește `NullPool` pe Vercel).
+- Variabile API: `CORS_ORIGINS`, `PUBLIC_BASE_URL`, `API_BASE_URL`, `DEFAULT_COUNTY`, `TARGET_COUNTIES`
+  (+ opțional `ANTHROPIC_API_KEY`, `MAIL_PROVIDER`/`SMTP_*`). Variabile web: `NEXT_PUBLIC_API_URL`,
+  `API_INTERNAL_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DEFAULT_COUNTY`.
+- Redeploy manual: `cd backend && vercel deploy --prod` și `cd frontend && vercel deploy --prod`.
+- Migrări pe Neon: rulați `alembic upgrade head` cu `DATABASE_URL` = `DATABASE_URL_UNPOOLED` din Vercel.
+- ETL zilnic: workflow-ul `.github/workflows/etl.yml`, cu secretul `PROD_DATABASE_URL`
+  (valoarea `DATABASE_URL_UNPOOLED` a proiectului `transparentro-api`).
+
 ## CI
 
 - `.github/workflows/ci.yml` — ruff, mypy, migrări, pytest (Postgres ca serviciu), tsc + lint + build Next,
