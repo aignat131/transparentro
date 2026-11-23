@@ -3,7 +3,7 @@ COMPOSE = docker compose
 ETL = $(COMPOSE) --profile etl run --rm etl
 TEST_DB = postgresql+psycopg://tro:tro@db:5432/tro_test
 
-.PHONY: help env up down logs build migrate etl etl-real etl-sample etl-synthetic etl-onrc risk \
+.PHONY: help env up down logs build migrate etl etl-real etl-sample etl-synthetic etl-onrc etl-prod risk \
         test test-api lint e2e clean ps
 
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "make etl-sample     - import real rapid: un singur trimestru (2025 T4)"
 	@echo "make etl-synthetic  - generează date SINTETICE (marcate is_synthetic) pentru dezvoltare"
 	@echo "make etl-onrc       - completează firmele din registrul ONRC (descarcă ~1 GB)"
+	@echo "make etl-prod       - import complet de pe acest calculator direct în baza de PRODUCȚIE (Neon)"
 	@echo "make test           - teste pytest (ETL + API) în container"
 	@echo "make e2e            - teste Playwright (stack-ul trebuie să ruleze)"
 	@echo "make lint           - ruff + mypy"
@@ -50,6 +51,15 @@ etl-sample: env
 etl-synthetic: env
 	$(ETL) synthetic --reset
 	$(ETL) risk
+
+# Import în producție (Neon), rulat local: data.gov.ro blochează serverele GitHub.
+# Necesită Docker pornit și `vercel login`. Adresa bazei e citită din Vercel într-un fișier
+# temporar, șters imediat după citire.
+etl-prod: env
+	@cd backend && vercel env pull ../.env.prod.tmp --environment production --yes >/dev/null
+	@url=$$(grep '^DATABASE_URL_UNPOOLED=' .env.prod.tmp | cut -d= -f2- | tr -d '"\r'); rm -f .env.prod.tmp; \
+	  test -n "$$url" || { echo "Nu am găsit DATABASE_URL_UNPOOLED în Vercel"; exit 1; }; \
+	  $(COMPOSE) --profile etl run --build --rm -e DATABASE_URL="$$url" etl all
 
 etl-onrc: env
 	$(ETL) onrc

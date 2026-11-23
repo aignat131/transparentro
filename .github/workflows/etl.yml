@@ -45,6 +45,7 @@ jobs:
       - name: Import (incremental) + semnale + alerte
         working-directory: backend
         run: |
-          python -m tro.etl all
+          # data.gov.ro nu răspunde serverelor GitHub (din SUA) -> SEAP se importă local cu `make etl-prod`
+          python -m tro.etl all --skip-seap
           python -m tro.etl alerts
           python -m tro.etl status

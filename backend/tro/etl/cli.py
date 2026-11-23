@@ -51,6 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("all")
     seap_opts(a)
     a.add_argument("--skip-bilant", action="store_true")
+    a.add_argument(
+        "--skip-seap", action="store_true", help="fără SEAP (ex. pe GitHub Actions, unde data.gov.ro nu răspunde)"
+    )
     sub.add_parser("bnr").add_argument("--years", default=None)
     seap_opts(sub.add_parser("seap"))
     sf = sub.add_parser("seap-file")
@@ -83,7 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
             if args.cmd == "all":
                 bnr.import_bnr(session, sorted(set(years) | {min(years) - 1}))
-            seap.import_seap(session, years, quarters, kinds, force=args.force)
+            if not getattr(args, "skip_seap", False):
+                seap.import_seap(session, years, quarters, kinds, force=args.force)
             if args.cmd == "all":
                 # fiecare etapă e independentă: o sursă indisponibilă nu oprește restul
                 steps: list[tuple[str, Callable[[], object]]] = [("anaf", lambda: anaf.enrich_companies(session))]

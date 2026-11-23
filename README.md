@@ -107,8 +107,12 @@ Producție: site https://transparentro-web.vercel.app · API https://transparent
   `API_INTERNAL_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DEFAULT_COUNTY`.
 - Redeploy manual: `cd backend && vercel deploy --prod` și `cd frontend && vercel deploy --prod`.
 - Migrări pe Neon: rulați `alembic upgrade head` cu `DATABASE_URL` = `DATABASE_URL_UNPOOLED` din Vercel.
-- ETL zilnic: workflow-ul `.github/workflows/etl.yml`, cu secretul `PROD_DATABASE_URL`
-  (valoarea `DATABASE_URL_UNPOOLED` a proiectului `transparentro-api`).
+- **Import SEAP în producție: `make etl-prod`, rulat de pe un calculator din România.** data.gov.ro nu răspunde
+  serverelor GitHub (centre de date din SUA), deci rapoartele SEAP nu pot fi descărcate din GitHub Actions.
+  Comanda citește adresa bazei din Vercel (necesită `vercel login` și Docker pornit), o ține doar în memorie și
+  rulează `etl all` direct în Neon. ADR publică trimestrial, deci o rulare după fiecare trimestru publicat ajunge.
+- ETL zilnic pe GitHub (`.github/workflows/etl.yml`, secretul `PROD_DATABASE_URL` = `DATABASE_URL_UNPOOLED`):
+  rulează `all --skip-seap` — cursuri BNR, actualizări ANAF, hartă, semnale, alerte.
 
 ## CI
 
