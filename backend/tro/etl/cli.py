@@ -21,6 +21,7 @@ import argparse
 import datetime as dt
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from sqlalchemy import text
@@ -85,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             seap.import_seap(session, years, quarters, kinds, force=args.force)
             if args.cmd == "all":
                 # fiecare etapă e independentă: o sursă indisponibilă nu oprește restul
-                steps = [("anaf", lambda: anaf.enrich_companies(session))]
+                steps: list[tuple[str, Callable[[], object]]] = [("anaf", lambda: anaf.enrich_companies(session))]
                 if not args.skip_bilant:
                     steps.append(("bilant", lambda: anaf.import_bilant(session)))
                 steps += [
