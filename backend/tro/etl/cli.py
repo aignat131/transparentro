@@ -84,11 +84,24 @@ def main(argv: list[str] | None = None) -> int:
                 bnr.import_bnr(session, sorted(set(years) | {min(years) - 1}))
             seap.import_seap(session, years, quarters, kinds, force=args.force)
             if args.cmd == "all":
-                anaf.enrich_companies(session)
+                # fiecare etapă e independentă: o sursă indisponibilă nu oprește restul
+                steps = [("anaf", lambda: anaf.enrich_companies(session))]
                 if not args.skip_bilant:
-                    anaf.import_bilant(session)
-                geocode.geocode_authorities(session)
-                risk.compute_all(session)
+                    steps.append(("bilant", lambda: anaf.import_bilant(session)))
+                steps += [
+                    ("geocode", lambda: geocode.geocode_authorities(session)),
+                    ("risk", lambda: risk.compute_all(session)),
+                ]
+                failed = []
+                for name, step in steps:
+                    try:
+                        step()
+                    except Exception:  # noqa: BLE001
+                        session.rollback()
+                        logging.exception("Etapa %s a eșuat; continui", name)
+                        failed.append(name)
+                if failed:
+                    logging.error("Etape eșuate: %s", ", ".join(failed))
         elif args.cmd == "bnr":
             years = _ints(args.years) if args.years else [dt.date.today().year - 1, dt.date.today().year]
             bnr.import_bnr(session, years)

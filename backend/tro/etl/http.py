@@ -33,7 +33,8 @@ def make_client(**kwargs: Any) -> httpx.Client:
     s = get_settings()
     headers = {"User-Agent": s.user_agent}
     headers.update(kwargs.pop("headers", {}))
-    return httpx.Client(headers=headers, timeout=s.http_timeout_s, follow_redirects=True, **kwargs)
+    timeout = httpx.Timeout(s.http_timeout_s, connect=20.0)  # conectarea eșuează repede dacă sursa e blocată
+    return httpx.Client(headers=headers, timeout=timeout, follow_redirects=True, **kwargs)
 
 
 def request_with_retry(

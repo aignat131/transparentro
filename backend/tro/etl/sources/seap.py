@@ -91,9 +91,15 @@ def import_seap(
     data_dir = Path(s.data_dir) / "seap"
     with make_client() as client:
         for year in years:
-            resources = [
-                r for r in list_seap_resources(year) if r.kind in kinds and (r.quarter in quarters or r.quarter is None)
-            ]
+            try:
+                found = list_seap_resources(year)
+            except Exception as exc:  # noqa: BLE001
+                # ex. data.gov.ro inaccesibil din rețeaua curentă: notăm și continuăm cu restul ETL-ului
+                run = RunLog(session, "seap_discovery", {"year": year})
+                run.finish("failed", f"data.gov.ro indisponibil: {exc}")
+                log.error("Nu pot lista resursele SEAP %d: %s — sar peste SEAP", year, exc)
+                continue
+            resources = [r for r in found if r.kind in kinds and (r.quarter in quarters or r.quarter is None)]
             resources.sort(key=lambda r: (r.quarter or 0, KIND_ORDER.index(r.kind)))
             log.info("SEAP %d: %d resurse de importat", year, len(resources))
             for res in resources:
