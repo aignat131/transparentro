@@ -12,3 +12,6 @@ frontend/playwright-report/
 data/
 *.egg-info/
 *.tsbuildinfo
+*.tmp
+.env.*
+!.env.example
