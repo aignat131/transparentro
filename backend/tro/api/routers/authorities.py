@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from tro.api import cache
 from tro.api import schemas as S
 from tro.api.common import company_key, county_param, signal_out, ts_query
+from tro.api.context import authority_context
 from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
@@ -69,6 +70,7 @@ def list_authorities(
     year: int | None = Query(None),
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
+    context: bool = Query(False, description="Adaugă categoria principală și partenerul principal"),
     sort: str = Query("total_desc", pattern="^(total_desc|name_asc|contracts_desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
@@ -82,6 +84,7 @@ def list_authorities(
         "contracts_desc": (func.coalesce(totals.c.n, 0).desc(), Authority.id),
     }[sort]
     rows = db.execute(stmt.order_by(*order).offset((page - 1) * page_size).limit(page_size)).all()
+    ctx = authority_context(db, [a.id for a, *_ in rows], year, domain) if context else {}
     return S.Page(
         items=[
             S.AuthorityItem(
@@ -94,6 +97,8 @@ def list_authorities(
                 total_ron=t or Decimal(0),
                 contracts=n or 0,
                 is_synthetic=a.is_synthetic,
+                top_category=ctx.get(a.id, (None, None))[0],
+                top_supplier=ctx.get(a.id, (None, None))[1],
             )
             for a, t, n in rows
         ],

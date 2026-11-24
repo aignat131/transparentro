@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SyntheticBadge } from "@/components/data-banner";
+import { FilterPanel } from "@/components/filter-panel";
 import { pageNum, Pagination, sp } from "@/components/pagination";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { api, DEFAULT_COUNTY, exportUrl, type CompanyItem, type Meta, type Page } from "@/lib/api";
-import { lei, num } from "@/lib/format";
+import { leiShort, num } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "Firme care lucrează cu statul",
@@ -24,13 +25,17 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Re
     sort: sp(searchParams.sort) ?? "total_desc",
   };
   const [data, meta] = await Promise.all([
-    api<Page<CompanyItem>>("/companies", { ...q, page, page_size: 25 }),
+    api<Page<CompanyItem>>("/companies", { ...q, context: true, page, page_size: 25 }),
     api<Meta>("/meta", { county: DEFAULT_COUNTY }, 600),
   ]);
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl">Firme care lucrează cu statul</h1>
-      <form method="get" className="grid gap-2 rounded-lg border bg-white p-4 md:grid-cols-4" aria-label="Filtre firme">
+      <h1 className="text-2xl">Firmele care au primit bani publici</h1>
+      <p className="text-sm text-muted-foreground">
+        {num(data.total)} firme{q.year ? ` în ${q.year}` : ""}, de la cea care a primit cei mai mulți bani. Apasă pe o firmă ca să vezi de la cine și pentru ce.
+      </p>
+      <FilterPanel active={[q.q && `„${q.q}”`, q.year, meta.domains?.find((d) => d.key === q.domain)?.label, q.with_signals && "cu semnale"]}>
+      <form method="get" className="grid gap-2 p-4 md:grid-cols-4" aria-label="Filtre firme">
         <div className="md:col-span-2">
           <label htmlFor="f-q" className="text-sm font-medium">Denumire sau CUI</label>
           <Input id="f-q" name="q" defaultValue={q.q} />
@@ -68,20 +73,22 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Re
           <Button variant="outline" asChild><a href={exportUrl("companies", q)}>Descarcă CSV</a></Button>
         </div>
       </form>
-      <p className="text-sm text-muted-foreground">{num(data.total)} firme</p>
+      </FilterPanel>
       <ul className="divide-y rounded-lg border bg-white">
         {data.items.map((c) => (
           <li key={c.key} className="flex flex-col gap-1 p-3 md:flex-row md:items-center md:justify-between">
             <div>
               <Link href={`/firme/${encodeURIComponent(c.key)}`} className="font-medium">{c.name}</Link>
               <SyntheticBadge show={c.is_synthetic} />
-              <div className="text-xs text-muted-foreground">
-                {[c.is_natural_person ? null : `CUI ${c.key}`, c.locality].filter(Boolean).join(" · ")}
-                {c.signal_count > 0 && <span className="ml-2 text-amber-800">{c.signal_count} semnale</span>}
-              </div>
+              {c.top_category && (
+                <div className="text-sm text-muted-foreground">
+                  {c.top_category}{c.top_client ? `, mai ales pentru ${c.top_client}` : ""}
+                </div>
+              )}
+              {c.signal_count > 0 && <div className="text-xs text-amber-800">{c.signal_count} semnale de verificat</div>}
             </div>
-            <div className="text-right text-sm tabular">
-              <div className="font-semibold">{lei(c.total_ron)}</div>
+            <div className="text-sm tabular md:text-right">
+              <div className="font-semibold text-primary">{leiShort(c.total_ron)}</div>
               <div className="text-xs text-muted-foreground">{num(c.contracts)} contracte</div>
             </div>
           </li>

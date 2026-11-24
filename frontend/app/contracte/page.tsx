@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { FilterPanel } from "@/components/filter-panel";
 import { pageNum, Pagination, sp } from "@/components/pagination";
 import { ContractTable } from "@/components/tables";
 import { Term } from "@/components/term";
@@ -38,7 +39,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
   return (
     <div className="space-y-4">
       <h1 className="text-2xl">Contracte publice</h1>
-      <form method="get" className="grid gap-3 rounded-lg border bg-white p-4 md:grid-cols-4" aria-label="Filtre contracte">
+      <FilterPanel active={[q.q && `„${q.q}”`, q.year, meta.domains?.find((d) => d.key === q.domain)?.label, q.procedure_type, q.with_signals && "cu semnale"]}>
+      <form method="get" className="grid gap-3 p-4 md:grid-cols-4" aria-label="Filtre contracte">
         <div className="md:col-span-2">
           <label htmlFor="f-q" className="text-sm font-medium">Text (obiect, număr anunț)</label>
           <Input id="f-q" name="q" defaultValue={q.q} placeholder="ex. asfaltare, laptop, SCNA1126001" />
@@ -98,6 +100,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
           <Button variant="outline" asChild><a href={exportUrl("contracts", q)}>Descarcă CSV</a></Button>
         </div>
       </form>
+      </FilterPanel>
       <p className="text-sm text-muted-foreground" aria-live="polite" data-testid="result-count">
         {num(data.total)} rezultate{q.authority_id || q.company ? " (filtrat pe instituție/firmă)" : ""} · total pe această pagină: {lei(sum)}
       </p>

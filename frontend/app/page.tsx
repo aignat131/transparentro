@@ -1,268 +1,213 @@
 import Link from "next/link";
+import { ChevronDown, X } from "lucide-react";
 
-import { CategoryChart, YearChart } from "@/components/charts";
-import { ALL_YEARS, type Choice, hrefWith, Pills } from "@/components/pills";
-import { ContractTable, TotalsTable } from "@/components/tables";
-import { Term } from "@/components/term";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALL_YEARS, hrefWith, pickYear } from "@/components/pills";
 import {
   api,
   DEFAULT_COUNTY,
   type AuthorityItem,
   type CompanyItem,
-  type ContractItem,
-  type NamedTotal,
   type Meta,
-  type Overview,
   type Page,
+  type Signal,
+  type SpendingReport,
 } from "@/lib/api";
-import { date, leiShort, num, pct } from "@/lib/format";
+import { leiShort, num } from "@/lib/format";
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: React.ReactNode }) {
+// Prima pagină, gândită pentru telefon și pentru cetățeanul curios:
+// cât s-a cheltuit → pe ce → cine a primit banii → cine i-a dat → ce merită verificat.
+
+function H2({ id, children }: { id: string; children: React.ReactNode }) {
+  return <h2 id={id} className="text-xl md:text-2xl">{children}</h2>;
+}
+
+function More({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <Link href={href} className="mt-3 inline-block font-medium">
+      {children} →
+    </Link>
   );
 }
 
-function shareOf(total: string | null, all: string): number | null {
-  const t = Number(total ?? 0);
-  const a = Number(all);
-  return a > 0 ? t / a : null;
+function YearMenu({ years, year, domain }: { years: number[]; year: number | null; domain: string | null }) {
+  const label = year === null ? "toți anii" : String(year);
+  const choices = [...years.map(String), ALL_YEARS];
+  return (
+    <details className="relative inline-block">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full border bg-white px-3 py-1 text-sm [&::-webkit-details-marker]:hidden">
+        Anul: <strong>{label}</strong> <ChevronDown className="h-4 w-4" aria-hidden />
+      </summary>
+      <ul className="absolute left-0 z-40 mt-2 w-40 rounded-lg border bg-white py-1 shadow-lg">
+        {choices.map((y) => (
+          <li key={y}>
+            <Link href={hrefWith("/", { year: y, domain })} scroll={false}
+              className="block px-4 py-2 text-foreground no-underline hover:bg-slate-50">
+              {y === ALL_YEARS ? "Toți anii" : y}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
-function Section({ id, title, intro, more, children }: {
-  id: string;
-  title: string;
-  intro?: React.ReactNode;
-  more?: { href: string; label: string };
-  children: React.ReactNode;
-}) {
+function Card({ href, title, amount, lines }: { href: string; title: string; amount: string; lines: (string | null)[] }) {
   return (
-    <section aria-labelledby={id}>
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={id} className="text-xl">{title}</h2>
-        {more && <Link href={more.href}>{more.label} →</Link>}
-      </div>
-      {intro && <p className="mb-3 text-sm text-muted-foreground">{intro}</p>}
-      <Card>
-        <CardContent className="pt-4">{children}</CardContent>
-      </Card>
-    </section>
+    <li>
+      <Link href={href} className="block h-full rounded-lg border bg-white p-4 text-foreground no-underline hover:border-primary">
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-semibold leading-snug">{title}</p>
+          <p className="shrink-0 font-semibold tabular text-primary">{amount}</p>
+        </div>
+        {lines.filter(Boolean).map((l) => (
+          <p key={l} className="mt-1 text-sm text-muted-foreground">{l}</p>
+        ))}
+      </Link>
+    </li>
   );
 }
 
 export default async function Home({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const county = DEFAULT_COUNTY;
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const meta = await api<Meta>("/meta", { county }, 600);
   const years = [...meta.years].sort((a, b) => b - a);
-  const domains = meta.domains ?? [];
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const raw = one(searchParams.year);
-  // implicit: cel mai recent an cu date; „toti” = toți anii
-  const year: number | null =
-    raw === ALL_YEARS ? null : raw && years.includes(Number(raw)) ? Number(raw) : (years[0] ?? null);
-  const rawDomain = one(searchParams.domain);
-  const domain = domains.find((d) => d.key === rawDomain) ?? null;
+  const year = pickYear(one(searchParams.year), years);
+  const domain = (meta.domains ?? []).find((d) => d.key === one(searchParams.domain)) ?? null;
   const yq = year ?? undefined;
   const dq = domain?.key;
-  const [ov, ovAll, companies, biggest, authorities, ngos] = await Promise.all([
-    api<Overview>("/stats/overview", { county, year: yq, domain: dq }),
-    year === null ? null : api<Overview>("/stats/overview", { county, domain: dq }),
-    api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, sort: "total_desc", page_size: 15 }),
-    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "value_desc", page_size: 10 }),
-    api<Page<AuthorityItem>>("/authorities", { county, year: yq, domain: dq, sort: "total_desc", page_size: 10 }),
-    api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, ngo: true, sort: "total_desc", page_size: 5 }),
+  const [report, companies, authorities, signals] = await Promise.all([
+    api<SpendingReport>("/stats/report", { county, year: yq }),
+    api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, context: true, sort: "total_desc", page_size: 6 }),
+    api<Page<AuthorityItem>>("/authorities", { county, year: yq, domain: dq, context: true, sort: "total_desc", page_size: 5 }),
+    dq ? null : api<Page<Signal>>("/risk-signals", { county, year: yq, sort: "score_desc", page_size: 3 }),
   ]);
-  const countyName = ov.county_name ?? "județ";
-  const inYear = year === null ? "" : ` în ${year}`;
-  const filterParams = [year === null ? "" : `year=${year}`, dq ? `domain=${dq}` : ""];
-  const withYear = (path: string, extra = "") => {
-    const q = [...filterParams, extra].filter(Boolean).join("&");
-    return q ? `${path}?${q}` : path;
-  };
-  // linkurile din selectoare păstrează celălalt filtru
-  const homeHref = (y: string | null, d: string | null) => {
-    const q = [y ? `year=${y}` : "", d ? `domain=${d}` : ""].filter(Boolean).join("&");
-    return q ? `/?${q}` : "/";
-  };
   const yearValue = year === null ? ALL_YEARS : String(year);
-  const yearChoices: Choice[] = [
-    ...years.map((y) => ({ value: String(y), label: String(y) })),
-    { value: ALL_YEARS, label: "Toți anii" },
-  ];
-  const domainChoices: Choice[] = [{ value: null, label: "Toate" }, ...domains.map((d) => ({ value: d.key, label: d.label }))];
-  const coverageTo = ov.data.coverage_to;
-  const yearUnfinished =
-    year !== null && year === years[0] && coverageTo != null && coverageTo < `${year}-12-31`;
-  const firmRows: NamedTotal[] = companies.items.map((c) => ({
-    key: c.key,
-    name: c.name,
-    count: c.contracts,
-    total_ron: c.total_ron ?? "0",
-    share: shareOf(c.total_ron, ov.total_ron),
-  }));
-  const ngoRows: NamedTotal[] = ngos.items.map((c) => ({
-    key: c.key,
-    name: c.name,
-    count: c.contracts,
-    total_ron: c.total_ron ?? "0",
-    share: shareOf(c.total_ron, ov.total_ron),
-  }));
-  const authorityRows: NamedTotal[] = authorities.items.map((a) => ({
-    key: String(a.id),
-    name: a.name,
-    count: a.contracts,
-    total_ron: a.total_ron ?? "0",
-    share: shareOf(a.total_ron, ov.total_ron),
-  }));
+  const dom = domain ? report.by_domain.find((d) => d.key === domain.key) : null;
+  const shown = dom ? dom.total_ron : report.total_ron;
+  const maxShare = Math.max(...report.by_domain.map((d) => d.share ?? 0), 0.01);
+  const when = year === null ? "În toți anii pentru care avem date" : `În ${year}`;
+  const withFilters = (path: string) => hrefWith(path, { year: yearValue, domain: dq });
+
   return (
-    <div className="space-y-10">
-      <section className="py-4">
-        <h1 className="text-3xl md:text-4xl">Unde se duc banii publici din județul {countyName}?</h1>
-        <p className="mt-2 max-w-3xl text-muted-foreground">
-          Ce firme au încasat cei mai mulți bani de la instituțiile publice, de la cine și pentru ce.
-        </p>
-        <div className="mt-5 space-y-3 rounded-lg border bg-white p-4">
-          <Pills label="Anul" choices={yearChoices} selected={yearValue} href={(v) => homeHref(v, dq ?? null)} />
-          {domains.length > 0 && (
-            <Pills label="Domeniul" choices={domainChoices} selected={dq ?? null} href={(v) => homeHref(yearValue, v)} />
-          )}
-          <p className="border-t pt-3 text-base">
-            {year === null ? (
-              <>Vezi datele pentru <strong>toți anii</strong></>
-            ) : (
-              <>Vezi datele pentru anul <strong>{year}</strong></>
-            )}
-            {domain ? (
-              <>, domeniul <strong>{domain.label}</strong></>
-            ) : (
-              <>, <strong>toate domeniile</strong></>
-            )}
-            {ov.data.coverage_from && (
-              <span className="text-muted-foreground"> ({date(ov.data.coverage_from)} – {date(coverageTo)})</span>
-            )}
-            : {num(ov.contracts)} contracte în valoare de <strong>{leiShort(ov.total_ron)}</strong>.{" "}
-            <Link href={hrefWith("/raport", { year: yearValue })}>Raportul complet →</Link>
-          </p>
-          {yearUnfinished && (
-            <p className="text-sm text-amber-800">
-              Anul {year} nu s-a încheiat: datele sunt până la {date(coverageTo)}. Alege un an anterior pentru un an complet.
-            </p>
-          )}
-        </div>
+    <div className="mx-auto max-w-3xl space-y-10">
+      <section aria-labelledby="cat" className="pt-2">
+        <YearMenu years={years} year={year} domain={dq ?? null} />
+        <h1 id="cat" className="mt-4 text-2xl leading-tight md:text-4xl">
+          {when}, instituțiile publice din județul {report.county_name} au dat{" "}
+          <span className="text-primary">{leiShort(shown)}</span> pe contracte
+          {domain ? <> pentru <span className="text-primary">{domain.label.toLowerCase()}</span></> : null}.
+        </h1>
+        {year !== null && year === new Date().getFullYear() && (
+          <p className="mt-2 text-sm text-muted-foreground">Anul nu s-a încheiat, datele sunt parțiale.</p>
+        )}
       </section>
 
-      <Section
-        id="firme"
-        title={`Firmele care au primit cei mai mulți bani${inYear}`}
-        intro="Totalul contractelor câștigate de la instituțiile publice din județ. Apasă pe o firmă ca să vezi de la cine a primit banii și pentru ce."
-        more={{ href: withYear("/firme"), label: `Toate cele ${num(ov.companies)} firme` }}
-      >
-        <TotalsTable rows={firmRows} linkBase="/firme" caption="Firmele cu cele mai mari sume" nameHeader="Firmă" />
-      </Section>
+      <section aria-labelledby="pe-ce">
+        <H2 id="pe-ce">Pe ce s-au dus banii</H2>
+        <p className="mt-1 text-sm text-muted-foreground">Apasă pe un domeniu ca să vezi doar firmele și instituțiile din el.</p>
+        <ul className="mt-4 space-y-2">
+          {report.by_domain
+            .filter((d) => d.key !== "altele")
+            .map((d) => {
+              const active = d.key === dq;
+              return (
+                <li key={d.key}>
+                  <Link
+                    href={hrefWith("/", { year: yearValue, domain: active ? null : d.key })}
+                    scroll={false}
+                    aria-current={active ? "true" : undefined}
+                    className={`block rounded-md px-2 py-1.5 text-foreground no-underline hover:bg-white ${active ? "bg-white ring-2 ring-primary" : ""}`}
+                  >
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="font-medium">{d.name}</span>
+                      <span className="shrink-0 tabular text-muted-foreground">{leiShort(d.total_ron)}</span>
+                    </div>
+                    <div className="mt-1 h-2.5 rounded-full bg-slate-100" aria-hidden>
+                      <div className="h-2.5 rounded-full bg-primary" style={{ width: `${Math.max(((d.share ?? 0) / maxShare) * 100, 1)}%` }} />
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+        </ul>
+        {domain && (
+          <Link href={hrefWith("/", { year: yearValue })} scroll={false} className="mt-3 inline-flex items-center gap-1 text-sm">
+            <X className="h-4 w-4" aria-hidden /> Toate domeniile
+          </Link>
+        )}
+      </section>
 
-      <Section
-        id="mari"
-        title={`Cele mai mari contracte${inYear}`}
-        intro="Cine a plătit, cui și pentru ce — ordonate după valoare."
-        more={{ href: withYear("/contracte", "sort=value_desc"), label: "Toate contractele" }}
-      >
-        <ContractTable items={biggest.items} />
-      </Section>
+      <section aria-labelledby="cine-a-primit">
+        <H2 id="cine-a-primit">Cine a primit cei mai mulți bani{domain ? ` (${domain.label.toLowerCase()})` : ""}</H2>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">
+          {companies.items.map((c) => (
+            <Card
+              key={c.key}
+              href={`/firme/${encodeURIComponent(c.key)}`}
+              title={c.name}
+              amount={leiShort(c.total_ron)}
+              lines={[
+                c.top_category && c.top_client ? `${c.top_category}, mai ales pentru ${c.top_client}` : c.top_category ?? null,
+                `${num(c.contracts)} ${c.contracts === 1 ? "contract" : "contracte"}`,
+              ]}
+            />
+          ))}
+        </ul>
+        <More href={withFilters("/firme")}>Vezi toate firmele</More>
+      </section>
 
-      <Section
-        id="institutii"
-        title={`Instituțiile care au cheltuit cel mai mult${inYear}`}
-        more={{ href: withYear("/institutii"), label: `Toate cele ${num(ov.authorities)} instituții` }}
-      >
-        <TotalsTable rows={authorityRows} linkBase="/institutii" caption="Instituțiile cu cele mai mari cheltuieli" nameHeader="Instituție" />
-      </Section>
+      <section aria-labelledby="cine-a-dat">
+        <H2 id="cine-a-dat">Cine a cheltuit cel mai mult</H2>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">
+          {authorities.items.map((a) => (
+            <Card
+              key={a.id}
+              href={`/institutii/${a.id}`}
+              title={a.name}
+              amount={leiShort(a.total_ron)}
+              lines={[
+                a.top_category ? `Cel mai mult pe: ${a.top_category.toLowerCase()}` : null,
+                a.top_supplier ? `Furnizorul principal: ${a.top_supplier}` : null,
+              ]}
+            />
+          ))}
+        </ul>
+        <More href={withFilters("/institutii")}>Vezi toate instituțiile</More>
+      </section>
 
-      {ngoRows.length > 0 && (
-        <Section
-          id="ong"
-          title={`ONG-urile care au primit cei mai mulți bani${inYear}`}
-          intro="Asociații, fundații și cluburi sportive plătite de instituțiile publice prin contracte."
-          more={{ href: withYear("/ong"), label: `Toate cele ${num(ngos.total)} ONG-uri` }}
-        >
-          <TotalsTable rows={ngoRows} linkBase="/firme" caption="ONG-urile cu cele mai mari sume" nameHeader="ONG" />
-        </Section>
+      {signals && signals.items.length > 0 && (
+        <section aria-labelledby="verificat">
+          <H2 id="verificat">Merită verificat</H2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Situații neobișnuite găsite automat în date. <strong>Nu sunt acuzații</strong>: pot avea explicații legitime.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {signals.items.map((s) => (
+              <li key={s.id}>
+                <Link href={s.contract_id ? `/contracte/${s.contract_id}` : "/semnale"}
+                  className="block rounded-lg border border-amber-200 bg-amber-50 p-4 text-foreground no-underline hover:border-amber-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-800">{s.signal_label}</p>
+                  <p className="mt-1 font-semibold leading-snug">{s.title}</p>
+                  <p className="mt-1 text-sm text-slate-700">{s.explanation}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <More href="/semnale">Toate semnalele</More>
+        </section>
       )}
 
-      <section aria-labelledby="cifre">
-        <h2 id="cifre" className="mb-3 text-xl">Pe scurt{year === null ? "" : ` (${year})`}</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <Stat label="Valoare totală contracte" value={leiShort(ov.total_ron)} hint={year === null ? "toți anii" : `anul ${year}`} />
-          <Stat label="Contracte și achiziții" value={num(ov.contracts)} />
-          <Stat label="Instituții cumpărătoare" value={num(ov.authorities)} />
-          <Stat label="Firme furnizoare" value={num(ov.companies)} />
-          <Stat
-            label="Semnale de verificat"
-            value={num(ov.signals)}
-            hint={<Link href="/semnale">vezi semnalele</Link>}
-          />
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <Term id="achizitie_directa">Achizițiile directe</Term> reprezintă {pct(ov.direct_awards_share)} din valoarea totală.
-        </p>
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Valoarea contractelor, pe ani (lei)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <YearChart data={(ovAll ?? ov).by_year} title="Valoarea contractelor pe ani" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Pe ce s-au cheltuit banii{inYear} (lei)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CategoryChart data={ov.by_category} title="Cheltuieli pe categorii" limit={7} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <section aria-labelledby="ultimele">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 id="ultimele" className="text-xl">Ultimele contracte{inYear}</h2>
-          <Link href={withYear("/contracte")}>Toate contractele →</Link>
-        </div>
-        <Card>
-          <CardContent className="pt-4">
-            <ContractTable items={ov.latest_contracts} />
-          </CardContent>
-        </Card>
-      </section>
-
-      <section aria-labelledby="cum" className="rounded-lg border bg-white p-6">
-        <h2 id="cum" className="text-xl">Cum citesc datele?</h2>
-        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">
-          <li>
-            <strong>Instituția</strong> (<Term id="autoritate_contractanta">autoritatea contractantă</Term>) cumpără produse,
-            servicii sau lucrări. Fiecare contract are o valoare în lei și un cod <Term id="cpv">CPV</Term> care arată ce s-a cumpărat.
-          </li>
-          <li>
-            Contractele mici se fac prin <Term id="achizitie_directa">achiziție directă</Term>; cele mari prin proceduri
-            competitive, ca <Term id="licitatie_deschisa">licitația deschisă</Term>.
-          </li>
-          <li>
-            Contractele pot fi modificate prin <Term id="act_aditional">acte adiționale</Term>. Toate valorile sunt în lei.
-          </li>
-          <li>
-            <Term id="semnal">Semnalele</Term> marchează situații care merită verificate — <strong>nu sunt acuzații</strong>.
-          </li>
-        </ol>
-        <p className="mt-3 text-sm">
-          <Link href="/metodologie">Metodologia completă</Link> · <Link href="/glosar">Glosar</Link> ·{" "}
-          <Link href="/surse-de-date">De unde vin datele</Link>
+      <section aria-labelledby="mai-mult" className="rounded-lg border bg-white p-5">
+        <h2 id="mai-mult" className="text-lg">Vrei mai mult?</h2>
+        <ul className="mt-2 space-y-2 text-sm">
+          <li><Link href={hrefWith("/raport", { year: yearValue })}>Raportul complet</Link>: toate cheltuielile pe domenii, luni, proceduri.</li>
+          <li><Link href={hrefWith("/ong", { year: yearValue })}>ONG-urile</Link> care au primit bani publici.</li>
+          <li><Link href="/cautare">Caută</Link> o firmă, o instituție sau un contract.</li>
+          <li><Link href="/metodologie">Cum citim datele</Link> și de unde vin.</li>
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Date oficiale din SEAP: {num(report.contracts)} contracte{year === null ? "" : ` în ${year}`}.
         </p>
       </section>
     </div>

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from tro.api import cache
 from tro.api import schemas as S
 from tro.api.common import company_key, county_param, find_company, signal_out, ts_query
+from tro.api.context import company_context
 from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
@@ -75,6 +76,7 @@ def list_companies(
     year: int | None = Query(None),
     with_signals: bool = Query(False),
     ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
+    context: bool = Query(False, description="Adaugă categoria principală și partenerul principal"),
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     sort: str = Query("total_desc", pattern="^(total_desc|contracts_desc|signals_desc|name_asc)$"),
     page: int = Query(1, ge=1),
@@ -90,9 +92,12 @@ def list_companies(
         "name_asc": (Company.name.asc(),),
     }[sort]
     rows = db.execute(stmt.order_by(*order).offset((page - 1) * page_size).limit(page_size)).all()
-    return S.Page(
-        items=[company_item(c, t, n, ns) for c, t, n, ns in rows], total=total, page=page, page_size=page_size
-    )
+    items = [company_item(c, t, n, ns) for c, t, n, ns in rows]
+    if context:
+        ctx = company_context(db, [c.id for c, *_ in rows], county, year, domain)
+        for item, (c, *_) in zip(items, rows, strict=True):
+            item.top_category, item.top_client = ctx.get(c.id, (None, None))
+    return S.Page(items=items, total=total, page=page, page_size=page_size)
 
 
 def company_item(c: Company, total: Decimal | None, n: int | None, ns: int | None) -> S.CompanyItem:

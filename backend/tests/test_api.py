@@ -215,3 +215,19 @@ def test_spending_report(client, data):
     assert all(m["month"].startswith("2025-") for m in r["by_month"])
     assert float(r["direct_awards_ron"]) <= float(r["total_ron"])
     assert client.get("/stats/report").json()["contracts"] >= r["contracts"]
+
+
+def test_list_context(client, data):
+    j = client.get("/companies?year=2025&context=true&page_size=5").json()
+    assert all(c["top_category"] and c["top_client"] for c in j["items"])
+    assert client.get("/companies?year=2025&page_size=5").json()["items"][0]["top_client"] is None
+    a = client.get("/authorities?year=2025&context=true&page_size=5").json()
+    assert all(x["top_category"] and x["top_supplier"] for x in a["items"] if x["contracts"] > 0)
+    # PFA-urile nu apar cu numele, nici ca furnizor principal
+    from sqlalchemy import select
+
+    from tro.models import Company
+
+    names = set(data.execute(select(Company.name).where(Company.is_natural_person.is_(True))).scalars())
+    every = client.get("/authorities?context=true&page_size=200").json()["items"]
+    assert not names & {x["top_supplier"] for x in every}

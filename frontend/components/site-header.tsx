@@ -1,16 +1,29 @@
 import Link from "next/link";
+import { Menu } from "lucide-react";
 
+// Puține linkuri, pentru cetățeanul curios; restul paginilor sunt în meniul de jos (footer).
 const NAV = [
-  { href: "/institutii", label: "Instituții" },
+  { href: "/", label: "Acasă" },
   { href: "/firme", label: "Firme" },
+  { href: "/institutii", label: "Instituții" },
   { href: "/ong", label: "ONG-uri" },
-  { href: "/contracte", label: "Contracte" },
   { href: "/raport", label: "Raport" },
-  { href: "/licitatii", label: "Licitații deschise" },
-  { href: "/semnale", label: "Semnale" },
-  { href: "/harta", label: "Hartă" },
-  { href: "/metodologie", label: "Cum citesc datele?" },
+  { href: "/cautare", label: "Caută" },
 ];
+
+function NavLinks({ className }: { className: string }) {
+  return (
+    <ul className={className}>
+      {NAV.map((n) => (
+        <li key={n.href}>
+          <Link href={n.href} className="block py-2 text-foreground no-underline hover:text-primary md:py-0">
+            {n.label}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function SiteHeader() {
   return (
@@ -18,23 +31,24 @@ export function SiteHeader() {
       <a href="#continut" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-white focus:p-2">
         Sari la conținut
       </a>
-      <div className="container flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
+      <div className="container flex items-center justify-between gap-4 py-3">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary no-underline">
           <span aria-hidden className="inline-block h-6 w-6 rounded bg-primary" />
           TransparentRO
-          <span className="text-sm font-normal text-muted-foreground">· banii publici, pe înțeles</span>
+          <span className="hidden text-sm font-normal text-muted-foreground lg:inline">· banii publici, pe înțeles</span>
         </Link>
-        <nav aria-label="Navigare principală">
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {NAV.map((n) => (
-              <li key={n.href}>
-                <Link href={n.href} className="text-foreground hover:text-primary hover:underline">
-                  {n.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label="Navigare principală" className="hidden md:block">
+          <NavLinks className="flex gap-5 text-sm" />
         </nav>
+        {/* pe telefon: buton ☰ care deschide lista (fără JavaScript) */}
+        <details className="group relative md:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border px-3 py-1.5 text-sm [&::-webkit-details-marker]:hidden">
+            <Menu className="h-4 w-4" aria-hidden /> Meniu
+          </summary>
+          <nav aria-label="Navigare principală (telefon)" className="absolute right-0 z-50 mt-2 w-56 rounded-lg border bg-white px-4 py-2 shadow-lg">
+            <NavLinks className="divide-y text-base" />
+          </nav>
+        </details>
       </div>
     </header>
   );
@@ -49,6 +63,10 @@ export function SiteFooter() {
           <p>Date din surse oficiale: SEAP/SICAP (data.gov.ro), ANAF, ONRC, BNR.</p>
         </div>
         <ul className="space-y-1">
+          <li><Link href="/contracte">Toate contractele</Link></li>
+          <li><Link href="/semnale">Semnale de verificat</Link></li>
+          <li><Link href="/licitatii">Licitații deschise (pentru firme și ONG-uri)</Link></li>
+          <li><Link href="/harta">Hartă</Link></li>
           <li><Link href="/metodologie">Metodologie</Link></li>
           <li><Link href="/surse-de-date">Surse de date</Link></li>
           <li><Link href="/glosar">Glosar</Link></li>

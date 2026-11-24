@@ -155,6 +155,9 @@ class AuthorityItem(BaseModel):
     total_ron: Decimal | None = None
     contracts: int = 0
     is_synthetic: bool = False
+    # cu ?context=true: pe ce a cheltuit cel mai mult și furnizorul principal
+    top_category: str | None = None
+    top_supplier: str | None = None
 
 
 class AuthorityDetail(AuthorityItem):
@@ -219,6 +222,9 @@ class CompanyItem(BaseModel):
     signal_count: int = 0
     is_synthetic: bool = False
     is_ngo: bool = False
+    # cu ?context=true: pentru ce a primit bani și de la cine (clientul principal)
+    top_category: str | None = None
+    top_client: str | None = None
 
 
 class CompanyDetail(CompanyItem):

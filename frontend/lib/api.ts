@@ -148,6 +148,8 @@ export type AuthorityItem = {
   total_ron: string | null;
   contracts: number;
   is_synthetic: boolean;
+  top_category?: string | null;
+  top_supplier?: string | null;
 };
 export type AuthorityDetail = AuthorityItem & {
   county_name: string | null;
@@ -173,6 +175,8 @@ export type CompanyItem = {
   signal_count: number;
   is_synthetic: boolean;
   is_ngo?: boolean;
+  top_category?: string | null;
+  top_client?: string | null;
 };
 export type CompanyDetail = CompanyItem & {
   cui: string | null;

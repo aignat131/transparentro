@@ -10,7 +10,7 @@ import { ContractTable, TotalsTable } from "@/components/tables";
 import { Term } from "@/components/term";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError, type AuthorityDetail, type ContractItem, type Page } from "@/lib/api";
-import { lei, num } from "@/lib/format";
+import { lei, leiShort, num } from "@/lib/format";
 
 async function load(id: string): Promise<AuthorityDetail> {
   if (!/^\d+$/.test(id)) notFound();
@@ -49,6 +49,24 @@ export default async function AuthorityPage({ params }: { params: { id: string }
         <p className="mt-1 text-sm text-muted-foreground">
           {[a.authority_type, a.locality, a.county_name && `județul ${a.county_name}`, `CUI ${a.cui}`].filter(Boolean).join(" · ")}
         </p>
+        {a.contracts > 0 && (
+          <p className="mt-3 max-w-3xl text-lg leading-relaxed">
+            A cheltuit <strong>{leiShort(a.total_ron)}</strong> prin {num(a.contracts)}{" "}
+            {a.contracts === 1 ? "contract" : "contracte"}
+            {a.by_category[0] && <>, cel mai mult pe {a.by_category[0].name.toLowerCase()}</>}
+            {a.top_suppliers[0] && (
+              <>
+                . Cei mai mulți bani au mers la{" "}
+                {a.top_suppliers[0].key ? (
+                  <Link href={`/firme/${encodeURIComponent(a.top_suppliers[0].key)}`}>{a.top_suppliers[0].name}</Link>
+                ) : (
+                  a.top_suppliers[0].name
+                )}
+              </>
+            )}
+            .
+          </p>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
           <div className="rounded-lg border bg-white p-4">
             <p className="text-sm text-muted-foreground">Total contractat</p>

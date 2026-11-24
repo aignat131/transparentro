@@ -3,7 +3,9 @@ import { expect, test } from "@playwright/test";
 // Fluxul 1: cetățeanul caută o firmă și ajunge la profilul ei.
 test("căutare → profil firmă → contract", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("banii publici");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("instituțiile publice");
+  await expect(page.getByRole("heading", { name: "Pe ce s-au dus banii" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Cine a primit cei mai mulți bani/ })).toBeVisible();
   // primul furnizor din lista de firme, căutat după nume fără diacritice
   await page.goto("/firme");
   const first = page.locator("main ul li a").first();
@@ -50,6 +52,7 @@ test("filtre contracte și semnale", async ({ page }) => {
   const count = page.getByTestId("result-count");
   const toNum = (t: string | null) => Number((t ?? "0").trim().split(" ")[0].replace(/\./g, ""));
   const before = toNum(await count.textContent());
+  await page.getByText("Filtre și căutare").click(); // filtrele sunt strânse sub un buton
   await page.getByLabel("Valoare minimă (lei)").fill("100000");
   await page.getByLabel("Ordonare").selectOption("value_desc");
   await page.getByRole("button", { name: "Aplică filtrele" }).click();
@@ -99,4 +102,15 @@ test("raport cheltuieli și licitații deschise", async ({ page }) => {
   await page.goto("/licitatii");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Licitații deschise");
   await expect(page.getByRole("navigation", { name: "Alege valoare" })).toBeVisible();
+});
+
+// Pe telefon: meniul ☰ se deschide și filtrele listelor sunt ascunse până le ceri.
+test("telefon: meniu și filtre strânse", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/firme");
+  await expect(page.getByLabel("Denumire sau CUI")).toBeHidden();
+  await page.getByText("Meniu").click();
+  await expect(page.getByRole("navigation", { name: "Navigare principală (telefon)" }).getByRole("link", { name: "ONG-uri" })).toBeVisible();
+  await page.getByText("Filtre și căutare").click();
+  await expect(page.getByLabel("Denumire sau CUI")).toBeVisible();
 });

@@ -11,7 +11,7 @@ import { ContractTable, TotalsTable } from "@/components/tables";
 import { Term } from "@/components/term";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError, type CompanyDetail, type ContractItem, type Page } from "@/lib/api";
-import { date, lei, num, pct } from "@/lib/format";
+import { date, lei, leiShort, num, pct } from "@/lib/format";
 
 async function load(key: string): Promise<CompanyDetail> {
   try {
@@ -60,6 +60,19 @@ export default async function CompanyPage({ params }: { params: { key: string } 
             <span className="ml-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 align-middle text-xs font-medium text-emerald-800">ONG</span>
           )}
         </h1>
+        {c.contracts > 0 && (
+          <p className="mt-3 max-w-3xl text-lg leading-relaxed">
+            A primit <strong>{leiShort(c.total_ron)}</strong> din {num(c.contracts)}{" "}
+            {c.contracts === 1 ? "contract" : "contracte"} cu instituțiile publice
+            {c.clients[0] && (
+              <>
+                , mai ales de la <Link href={`/institutii/${c.clients[0].key}`}>{c.clients[0].name}</Link>
+                {c.clients[0].share != null && c.clients.length > 1 ? ` (${pct(c.clients[0].share)} din bani)` : ""}
+              </>
+            )}
+            {c.by_category[0] && <>, pentru {c.by_category[0].name.toLowerCase()}</>}.
+          </p>
+        )}
         {c.is_natural_person && (
           <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
             Furnizorul este o <Term id="pfa">persoană fizică autorizată</Term> (PFA, întreprindere individuală sau familială).
