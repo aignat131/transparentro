@@ -27,7 +27,7 @@ from tro.models import Authority, Contract, Procedure
 router = APIRouter(prefix="/procedures", tags=["licitații"])
 
 # stări de final (după unaccent + lower)
-CLOSED_STATUS = r"(atribuit|anulat|finalizat|incheiat|suspendat|revocat|reziliat)"
+CLOSED_STATUS = r"(atribuit|anulat|finalizat|incheiat|suspend|revocat|reziliat|cancel|closed|award)"
 # cât de vechi poate fi un anunț față de cel mai nou anunț importat ca să-l mai socotim în curs
 OPEN_WINDOW = dt.timedelta(days=120)
 
