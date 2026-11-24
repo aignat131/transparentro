@@ -409,6 +409,18 @@ class CorrectionRequest(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AiSummary(Base):
+    """Rezumate AI pentru firme/ONG-uri și instituții (cache; se regenerează după o vreme)."""
+
+    __tablename__ = "ai_summaries"
+
+    kind: Mapped[str] = mapped_column(String(20), primary_key=True)  # company | authority
+    ref: Mapped[str] = mapped_column(String(40), primary_key=True)  # CUI / cheie firmă sau id instituție
+    text: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ContractExplanation(Base):
     __tablename__ = "contract_explanations"
 

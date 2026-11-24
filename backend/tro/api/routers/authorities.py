@@ -15,6 +15,7 @@ from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
 from tro.models import Authority, Company, Contract, RiskSignal
+from tro.ngo import ngo_condition
 
 router = APIRouter(prefix="/authorities", tags=["instituții"])
 
@@ -22,7 +23,12 @@ AUTH_SORTS = {"total_desc", "name_asc", "contracts_desc"}
 
 
 def authorities_query(
-    county: str | None, q: str | None, authority_type: str | None, year: int | None, domain: str | None = None
+    county: str | None,
+    q: str | None,
+    authority_type: str | None,
+    year: int | None,
+    domain: str | None = None,
+    ngo: bool = False,
 ):
     dcond = domain_condition(domain)
     totals = (
@@ -42,6 +48,8 @@ def authorities_query(
     stmt = select(Authority, totals.c.total, totals.c.n).outerjoin(totals, totals.c.aid == Authority.id)
     if dcond is not None:
         stmt = stmt.where(totals.c.n > 0)
+    if ngo:
+        stmt = stmt.where(ngo_condition(Authority.name_normalized), totals.c.n > 0)
     if county:
         stmt = stmt.where(Authority.county_code == county)
     if authority_type:
@@ -60,12 +68,13 @@ def list_authorities(
     authority_type: str | None = Query(None),
     year: int | None = Query(None),
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
+    ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
     sort: str = Query("total_desc", pattern="^(total_desc|name_asc|contracts_desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals = authorities_query(county, q, authority_type, year, domain)
+    stmt, totals = authorities_query(county, q, authority_type, year, domain, ngo)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (func.coalesce(totals.c.total, 0).desc(), Authority.id),

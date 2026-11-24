@@ -80,3 +80,12 @@ test("pagini statice și SEO", async ({ page, request }) => {
   const og = await request.get("/opengraph-image");
   expect(og.headers()["content-type"]).toContain("image/png");
 });
+
+// Secțiunea ONG-uri: pagina se încarcă, cu selector de an și cele două tabele.
+test("pagina ONG-uri", async ({ page }) => {
+  await page.goto("/ong");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("ONG-uri");
+  await expect(page.getByRole("navigation", { name: "Alege anul" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ONG-urile care au primit/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ONG-urile care au cumpărat/ })).toBeVisible();
+});

@@ -5,7 +5,7 @@ import { ExternalLink } from "lucide-react";
 
 import { CategoryChart, YearChart } from "@/components/charts";
 import { SyntheticBadge } from "@/components/data-banner";
-import { SubscribeForm } from "@/components/forms";
+import { ExplainBox, SubscribeForm } from "@/components/forms";
 import { SignalCard, SignalsNote } from "@/components/signals";
 import { ContractTable, TotalsTable } from "@/components/tables";
 import { Term } from "@/components/term";
@@ -50,12 +50,15 @@ export default async function CompanyPage({ params }: { params: { key: string } 
   return (
     <div className="space-y-6">
       <nav aria-label="Fir de navigare" className="text-sm text-muted-foreground">
-        <Link href="/firme">Firme</Link> / {c.name}
+        {c.is_ngo ? <Link href="/ong">ONG-uri</Link> : <Link href="/firme">Firme</Link>} / {c.name}
       </nav>
       <header>
         <h1 className="text-2xl md:text-3xl">
           {c.name}
           <SyntheticBadge show={c.is_synthetic} />
+          {c.is_ngo && (
+            <span className="ml-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 align-middle text-xs font-medium text-emerald-800">ONG</span>
+          )}
         </h1>
         {c.is_natural_person && (
           <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
@@ -64,6 +67,12 @@ export default async function CompanyPage({ params }: { params: { key: string } 
           </p>
         )}
       </header>
+
+      <ExplainBox
+        path={`/explain/company/${encodeURIComponent(c.key)}`}
+        intro={`Ce face ${c.is_ngo ? "acest ONG" : "această firmă"} cu banii publici, pe scurt?`}
+        button="Rezumat AI"
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">

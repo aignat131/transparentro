@@ -3,6 +3,7 @@ import Link from "next/link";
 const NAV = [
   { href: "/institutii", label: "Instituții" },
   { href: "/firme", label: "Firme" },
+  { href: "/ong", label: "ONG-uri" },
   { href: "/contracte", label: "Contracte" },
   { href: "/semnale", label: "Semnale" },
   { href: "/harta", label: "Hartă" },

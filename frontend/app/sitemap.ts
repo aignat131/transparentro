@@ -4,7 +4,7 @@ import { api, DEFAULT_COUNTY, SITE_URL, type AuthorityItem, type CompanyItem, ty
 
 export const dynamic = "force-dynamic";
 
-const STATIC = ["", "/institutii", "/firme", "/contracte", "/semnale", "/harta", "/metodologie", "/surse-de-date", "/despre", "/disclaimer", "/glosar"];
+const STATIC = ["", "/institutii", "/firme", "/ong", "/contracte", "/semnale", "/harta", "/metodologie", "/surse-de-date", "/despre", "/disclaimer", "/glosar"];
 
 async function all<T>(path: string, q: Record<string, string | number>, maxPages = 20): Promise<T[]> {
   const out: T[] = [];

@@ -172,6 +172,7 @@ export type CompanyItem = {
   contracts: number;
   signal_count: number;
   is_synthetic: boolean;
+  is_ngo?: boolean;
 };
 export type CompanyDetail = CompanyItem & {
   cui: string | null;

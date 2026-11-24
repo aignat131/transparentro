@@ -103,7 +103,7 @@ export default async function ContractPage({ params }: { params: { id: string } 
         </section>
       )}
 
-      <ExplainBox contractId={c.id} />
+      <ExplainBox path={`/explain/${c.id}`} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

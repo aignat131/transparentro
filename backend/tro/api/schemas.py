@@ -188,6 +188,7 @@ class CompanyItem(BaseModel):
     contracts: int = 0
     signal_count: int = 0
     is_synthetic: bool = False
+    is_ngo: bool = False
 
 
 class CompanyDetail(CompanyItem):

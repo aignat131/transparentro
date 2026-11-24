@@ -15,11 +15,19 @@ from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
 from tro.models import Authority, Company, CompanyAlias, CompanyFinancial, Contract, RiskSignal
+from tro.ngo import is_ngo_name, ngo_condition
 
 router = APIRouter(prefix="/companies", tags=["firme"])
 
 
-def companies_query(county: str | None, q: str | None, year: int | None, with_signals: bool, domain: str | None = None):
+def companies_query(
+    county: str | None,
+    q: str | None,
+    year: int | None,
+    with_signals: bool,
+    domain: str | None = None,
+    ngo: bool = False,
+):
     cfilter: list[Any] = [Contract.company_id.is_not(None), Contract.repeat_same_company.is_(False)]
     dcond = domain_condition(domain)
     if dcond is not None:
@@ -55,6 +63,8 @@ def companies_query(county: str | None, q: str | None, year: int | None, with_si
             stmt = stmt.where(Company.search_vector.op("@@")(tq))
     if with_signals:
         stmt = stmt.where(sig.c.ns > 0)
+    if ngo:
+        stmt = stmt.where(Company.is_natural_person.is_(False), ngo_condition(Company.name_normalized))
     return stmt, totals, sig
 
 
@@ -64,13 +74,14 @@ def list_companies(
     q: str | None = Query(None, max_length=200),
     year: int | None = Query(None),
     with_signals: bool = Query(False),
+    ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     sort: str = Query("total_desc", pattern="^(total_desc|contracts_desc|signals_desc|name_asc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals, sig = companies_query(county, q, year, with_signals, domain)
+    stmt, totals, sig = companies_query(county, q, year, with_signals, domain, ngo)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (totals.c.total.desc(), Company.id),
@@ -95,6 +106,7 @@ def company_item(c: Company, total: Decimal | None, n: int | None, ns: int | Non
         contracts=n or 0,
         signal_count=ns or 0,
         is_synthetic=c.is_synthetic,
+        is_ngo=not c.is_natural_person and is_ngo_name(c.name),
     )
 
 
@@ -171,6 +183,7 @@ def _company_detail(db: Session, c: Company) -> S.CompanyDetail:
         contracts=n_total,
         signal_count=len(sigs),
         is_synthetic=c.is_synthetic,
+        is_ngo=not pf and is_ngo_name(c.name),
         cui=None if pf else c.cui if c.cui.isdigit() else None,
         founded_on=None if pf else c.founded_on,
         founded_source=None if pf else c.founded_source,

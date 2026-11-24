@@ -97,12 +97,13 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
   const domain = domains.find((d) => d.key === rawDomain) ?? null;
   const yq = year ?? undefined;
   const dq = domain?.key;
-  const [ov, ovAll, companies, biggest, authorities] = await Promise.all([
+  const [ov, ovAll, companies, biggest, authorities, ngos] = await Promise.all([
     api<Overview>("/stats/overview", { county, year: yq, domain: dq }),
     year === null ? null : api<Overview>("/stats/overview", { county, domain: dq }),
     api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, sort: "total_desc", page_size: 15 }),
     api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "value_desc", page_size: 10 }),
     api<Page<AuthorityItem>>("/authorities", { county, year: yq, domain: dq, sort: "total_desc", page_size: 10 }),
+    api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, ngo: true, sort: "total_desc", page_size: 5 }),
   ]);
   const countyName = ov.county_name ?? "județ";
   const inYear = year === null ? "" : ` în ${year}`;
@@ -126,6 +127,13 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
   const yearUnfinished =
     year !== null && year === years[0] && coverageTo != null && coverageTo < `${year}-12-31`;
   const firmRows: NamedTotal[] = companies.items.map((c) => ({
+    key: c.key,
+    name: c.name,
+    count: c.contracts,
+    total_ron: c.total_ron ?? "0",
+    share: shareOf(c.total_ron, ov.total_ron),
+  }));
+  const ngoRows: NamedTotal[] = ngos.items.map((c) => ({
     key: c.key,
     name: c.name,
     count: c.contracts,
@@ -200,6 +208,17 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
       >
         <TotalsTable rows={authorityRows} linkBase="/institutii" caption="Instituțiile cu cele mai mari cheltuieli" nameHeader="Instituție" />
       </Section>
+
+      {ngoRows.length > 0 && (
+        <Section
+          id="ong"
+          title={`ONG-urile care au primit cei mai mulți bani${inYear}`}
+          intro="Asociații, fundații și cluburi sportive plătite de instituțiile publice prin contracte."
+          more={{ href: withYear("/ong"), label: `Toate cele ${num(ngos.total)} ONG-uri` }}
+        >
+          <TotalsTable rows={ngoRows} linkBase="/firme" caption="ONG-urile cu cele mai mari sume" nameHeader="ONG" />
+        </Section>
+      )}
 
       <section aria-labelledby="cifre">
         <h2 id="cifre" className="mb-3 text-xl">Pe scurt{year === null ? "" : ` (${year})`}</h2>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { SubscribeForm } from "@/components/forms";
+import { ExplainBox, SubscribeForm } from "@/components/forms";
 import { CategoryChart, YearChart } from "@/components/charts";
 import { SyntheticBadge } from "@/components/data-banner";
 import { SignalCard, SignalsNote } from "@/components/signals";
@@ -64,6 +64,12 @@ export default async function AuthorityPage({ params }: { params: { id: string }
           </div>
         </div>
       </header>
+
+      <ExplainBox
+        path={`/explain/authority/${a.id}`}
+        intro="Pe ce cheltuie această instituție banii, pe scurt?"
+        button="Rezumat AI"
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

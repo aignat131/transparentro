@@ -90,3 +90,88 @@ def test_explain_uses_cache(client, data):
     data.commit()
     j = client.get("/explain/1").json()
     assert j["cached"] is True and j["text"] == "Explicație salvată."
+
+
+def test_summary_disabled_without_key(client, data, monkeypatch):
+    from tro.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    key = client.get("/companies?page_size=1").json()["items"][0]["key"]
+    assert client.get(f"/explain/company/{key}").status_code == 503
+    aid = client.get("/authorities?page_size=1").json()["items"][0]["id"]
+    assert client.get(f"/explain/authority/{aid}").status_code == 503
+    assert client.get("/explain/company/123456789999").status_code == 404
+    assert client.get("/explain/authority/999999").status_code == 404
+
+
+def test_summary_cache_and_refresh(client, data, monkeypatch):
+    import datetime as dt
+
+    from tro.api.routers import explain
+    from tro.models import AiSummary
+
+    key = client.get("/companies?page_size=1").json()["items"][0]["key"]
+    data.add(AiSummary(kind="company", ref=key, text="Rezumat salvat.", model="test"))
+    data.commit()
+    j = client.get(f"/explain/company/{key}").json()
+    assert j["cached"] is True and j["text"] == "Rezumat salvat."
+
+    # rezumatul vechi se regenerează, cu datele firmei trimise modelului
+    sent: list[str] = []
+
+    def fake_ask(system: str, content: str) -> tuple[str, str]:
+        sent.append(content)
+        return "Rezumat nou.", "model-test"
+
+    monkeypatch.setattr(explain, "_ask", fake_ask)
+    row = data.get(AiSummary, ("company", key))
+    row.created_at = dt.datetime.now(dt.UTC) - dt.timedelta(days=60)
+    data.commit()
+    j = client.get(f"/explain/company/{key}").json()
+    assert j["cached"] is False and j["text"] == "Rezumat nou."
+    assert "total_primit_lei" in sent[0] and "clienti_principali" in sent[0]
+
+    aid = client.get("/authorities?page_size=1").json()["items"][0]["id"]
+    j = client.get(f"/explain/authority/{aid}").json()
+    assert j["text"] == "Rezumat nou." and "furnizori_principali" in sent[-1]
+
+
+def test_ngo_names():
+    from tro.ngo import is_ngo_name
+
+    assert is_ngo_name("Asociația Speranță și Zâmbet")
+    assert is_ngo_name("FUNDATIA COMUNITARA SIBIU")
+    assert is_ngo_name("Clubul Sportiv Municipal Sibiu")
+    assert not is_ngo_name("ASOCIATIA DE DEZVOLTARE INTERCOMUNITARA ECO SIBIU")
+    assert not is_ngo_name("Asociatia de proprietari bloc 5")
+    assert not is_ngo_name("CONSTRUCTII CS SRL")
+    assert not is_ngo_name("FUNDATII SI STRUCTURI SRL")
+
+
+def test_ngo_filter(client, data):
+    from tro.models import Authority, Company
+    from tro.normalize import normalize_name
+
+    comp = (
+        data.execute(
+            select(Company)
+            .join(Contract, Contract.company_id == Company.id)
+            .where(Company.is_natural_person.is_(False), Contract.repeat_same_company.is_(False))
+        )
+        .scalars()
+        .first()
+    )
+    comp.name = "Asociația Prietenii Naturii"
+    comp.name_normalized = normalize_name(comp.name)
+    auth = data.execute(select(Authority).join(Contract, Contract.authority_id == Authority.id)).scalars().first()
+    auth.name = "Fundația Comunitară Test"
+    auth.name_normalized = normalize_name(auth.name)
+    data.commit()
+
+    j = client.get("/companies?ngo=true").json()
+    assert [c["name"] for c in j["items"]] == ["Asociația Prietenii Naturii"]
+    assert j["items"][0]["is_ngo"] is True
+    assert client.get(f"/companies/{comp.cui}").json()["is_ngo"] is True
+    a = client.get("/authorities?ngo=true").json()
+    assert [x["name"] for x in a["items"]] == ["Fundația Comunitară Test"]
+    assert client.get("/companies").json()["total"] > 1

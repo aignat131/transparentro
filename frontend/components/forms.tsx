@@ -110,13 +110,21 @@ export function CorrectionForm() {
   );
 }
 
-export function ExplainBox({ contractId }: { contractId: number }) {
+export function ExplainBox({
+  path,
+  intro = "Vreți o explicație pe scurt, în cuvinte simple?",
+  button = "Explică-mi contractul",
+}: {
+  path: string;
+  intro?: string;
+  button?: string;
+}) {
   const [s, setS] = useState<Status>({ kind: "idle" });
   const [text, setText] = useState<string | null>(null);
   return (
     <div className="rounded-lg border border-dashed bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Vreți o explicație pe scurt, în cuvinte simple?</p>
+        <p className="text-sm text-muted-foreground">{intro}</p>
         <Button
           variant="outline"
           size="sm"
@@ -124,7 +132,7 @@ export function ExplainBox({ contractId }: { contractId: number }) {
           onClick={async () => {
             setS({ kind: "busy" });
             try {
-              const r = await fetch(`${PUBLIC_API}/explain/${contractId}`);
+              const r = await fetch(`${PUBLIC_API}${path}`);
               const j = await r.json();
               if (!r.ok) throw new Error(j.detail || "Explicația nu este disponibilă.");
               setText(j.text);
@@ -134,7 +142,7 @@ export function ExplainBox({ contractId }: { contractId: number }) {
             }
           }}
         >
-          <Sparkles className="h-4 w-4" aria-hidden /> {s.kind === "busy" ? "Se generează…" : "Explică-mi contractul"}
+          <Sparkles className="h-4 w-4" aria-hidden /> {s.kind === "busy" ? "Se generează… (până la un minut)" : button}
         </Button>
       </div>
       {text && (
