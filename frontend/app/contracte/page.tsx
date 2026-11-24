@@ -20,6 +20,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
     county: DEFAULT_COUNTY,
     q: sp(searchParams.q),
     year: sp(searchParams.year),
+    domain: sp(searchParams.domain),
     min_value: sp(searchParams.min_value),
     max_value: sp(searchParams.max_value),
     procedure_type: sp(searchParams.procedure_type),
@@ -49,6 +50,15 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
             {meta.years.map((y) => <option key={y}>{y}</option>)}
           </Select>
         </div>
+        {(meta.domains?.length ?? 0) > 0 && (
+          <div>
+            <label htmlFor="f-domain" className="text-sm font-medium">Domeniu</label>
+            <Select id="f-domain" name="domain" defaultValue={q.domain ?? ""}>
+              <option value="">Toate domeniile</option>
+              {meta.domains?.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+            </Select>
+          </div>
+        )}
         <div>
           <label htmlFor="f-proc" className="text-sm font-medium">Tip procedură</label>
           <Select id="f-proc" name="procedure_type" defaultValue={q.procedure_type ?? ""}>

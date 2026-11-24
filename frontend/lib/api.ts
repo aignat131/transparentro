@@ -252,4 +252,5 @@ export type Meta = {
   authority_types: string[];
   categories: string[];
   signal_types: { code: string; label: string }[];
+  domains?: { key: string; label: string }[];
 };

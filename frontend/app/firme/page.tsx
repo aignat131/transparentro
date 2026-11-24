@@ -19,6 +19,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Re
     county: DEFAULT_COUNTY,
     q: sp(searchParams.q),
     year: sp(searchParams.year),
+    domain: sp(searchParams.domain),
     with_signals: sp(searchParams.with_signals) === "true",
     sort: sp(searchParams.sort) ?? "total_desc",
   };
@@ -41,6 +42,15 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Re
             {meta.years.map((y) => <option key={y}>{y}</option>)}
           </Select>
         </div>
+        {(meta.domains?.length ?? 0) > 0 && (
+          <div>
+            <label htmlFor="f-domain" className="text-sm font-medium">Domeniu</label>
+            <Select id="f-domain" name="domain" defaultValue={q.domain ?? ""}>
+              <option value="">Toate domeniile</option>
+              {meta.domains?.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+            </Select>
+          </div>
+        )}
         <div>
           <label htmlFor="f-sort" className="text-sm font-medium">Ordonare</label>
           <Select id="f-sort" name="sort" defaultValue={q.sort}>

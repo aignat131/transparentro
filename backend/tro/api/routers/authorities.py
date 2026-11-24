@@ -13,6 +13,7 @@ from tro.api import schemas as S
 from tro.api.common import company_key, county_param, signal_out, ts_query
 from tro.cpv import cpv_category
 from tro.db import get_db
+from tro.domains import domain_condition
 from tro.models import Authority, Company, Contract, RiskSignal
 
 router = APIRouter(prefix="/authorities", tags=["instituții"])
@@ -20,18 +21,27 @@ router = APIRouter(prefix="/authorities", tags=["instituții"])
 AUTH_SORTS = {"total_desc", "name_asc", "contracts_desc"}
 
 
-def authorities_query(county: str | None, q: str | None, authority_type: str | None, year: int | None):
+def authorities_query(
+    county: str | None, q: str | None, authority_type: str | None, year: int | None, domain: str | None = None
+):
+    dcond = domain_condition(domain)
     totals = (
         select(
             Contract.authority_id.label("aid"),
             func.coalesce(func.sum(Contract.value_ron), 0).label("total"),
             func.count(Contract.id).label("n"),
         )
-        .where((Contract.year == year) if year else true(), Contract.duplicate_of_id.is_(None))
+        .where(
+            (Contract.year == year) if year else true(),
+            dcond if dcond is not None else true(),
+            Contract.duplicate_of_id.is_(None),
+        )
         .group_by(Contract.authority_id)
         .subquery()
     )
     stmt = select(Authority, totals.c.total, totals.c.n).outerjoin(totals, totals.c.aid == Authority.id)
+    if dcond is not None:
+        stmt = stmt.where(totals.c.n > 0)
     if county:
         stmt = stmt.where(Authority.county_code == county)
     if authority_type:
@@ -49,12 +59,13 @@ def list_authorities(
     q: str | None = Query(None, max_length=200),
     authority_type: str | None = Query(None),
     year: int | None = Query(None),
+    domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     sort: str = Query("total_desc", pattern="^(total_desc|name_asc|contracts_desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals = authorities_query(county, q, authority_type, year)
+    stmt, totals = authorities_query(county, q, authority_type, year, domain)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (func.coalesce(totals.c.total, 0).desc(), Authority.id),

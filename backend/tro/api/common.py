@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from tro.api import schemas as S
 from tro.config import get_settings
 from tro.cpv import cpv_category
+from tro.domains import domain_condition
 from tro.etl.risk import SIGNAL_TYPES
 from tro.models import Authority, Company, Contract, RiskSignal
 from tro.normalize import normalize_cui, strip_diacritics
@@ -161,6 +162,7 @@ class ContractFilters:
         max_value: float | None = Query(None, ge=0),
         procedure_type: str | None = Query(None, description="Tipul procedurii (ex. 'Achiziție directă')"),
         cpv: str | None = Query(None, description="Prefix cod CPV (ex. 45 sau 45233)"),
+        domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
         authority_id: int | None = Query(None),
         company: str | None = Query(None, description="CUI sau cheia firmei"),
         source: str | None = Query(None, description="ad | dan | contracte | atribuire_fara"),
@@ -174,6 +176,7 @@ class ContractFilters:
         self.max_value = max_value
         self.procedure_type = procedure_type
         self.cpv = cpv
+        self.domain = domain
         self.authority_id = authority_id
         self.company = company
         self.source = source
@@ -196,6 +199,9 @@ class ContractFilters:
             digits = re.sub(r"\D", "", self.cpv)[:8]
             if digits:
                 stmt = stmt.where(Contract.cpv_code.like(f"{digits}%"))
+        dcond = domain_condition(self.domain)
+        if dcond is not None:
+            stmt = stmt.where(dcond)
         if self.authority_id:
             stmt = stmt.where(Contract.authority_id == self.authority_id)
         if self.company:

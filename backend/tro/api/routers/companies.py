@@ -13,13 +13,17 @@ from tro.api import schemas as S
 from tro.api.common import company_key, county_param, find_company, signal_out, ts_query
 from tro.cpv import cpv_category
 from tro.db import get_db
+from tro.domains import domain_condition
 from tro.models import Authority, Company, CompanyAlias, CompanyFinancial, Contract, RiskSignal
 
 router = APIRouter(prefix="/companies", tags=["firme"])
 
 
-def companies_query(county: str | None, q: str | None, year: int | None, with_signals: bool):
+def companies_query(county: str | None, q: str | None, year: int | None, with_signals: bool, domain: str | None = None):
     cfilter: list[Any] = [Contract.company_id.is_not(None), Contract.repeat_same_company.is_(False)]
+    dcond = domain_condition(domain)
+    if dcond is not None:
+        cfilter.append(dcond)
     if county:
         cfilter.append(Contract.county_code == county)
     if year:
@@ -60,12 +64,13 @@ def list_companies(
     q: str | None = Query(None, max_length=200),
     year: int | None = Query(None),
     with_signals: bool = Query(False),
+    domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     sort: str = Query("total_desc", pattern="^(total_desc|contracts_desc|signals_desc|name_asc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals, sig = companies_query(county, q, year, with_signals)
+    stmt, totals, sig = companies_query(county, q, year, with_signals, domain)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (totals.c.total.desc(), Company.id),

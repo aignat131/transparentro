@@ -13,6 +13,7 @@ from tro.api.common import contract_item, county_param, signal_counts
 from tro.counties import COUNTIES, county_name
 from tro.cpv import all_categories, cpv_category
 from tro.db import get_db
+from tro.domains import all_domains, domain_condition
 from tro.etl.risk import SIGNAL_TYPES
 from tro.models import Authority, Contract, ImportRun, RiskSignal
 
@@ -25,14 +26,19 @@ def overview(
     response: Response,
     county: str | None = Depends(county_param),
     year: int | None = Query(None),
+    domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     db: Session = Depends(get_db),
 ):
-    return cache.cached(request, response, lambda: _overview(db, county, year))
+    return cache.cached(request, response, lambda: _overview(db, county, year, domain))
 
 
-def _overview(db: Session, county: str | None, year: int | None) -> S.Overview:
+def _overview(db: Session, county: str | None, year: int | None, domain: str | None = None) -> S.Overview:
+    dcond = domain_condition(domain)
+
     def cf(stmt):
         stmt = stmt.where(Contract.duplicate_of_id.is_(None))
+        if dcond is not None:
+            stmt = stmt.where(dcond)
         if county:
             stmt = stmt.where(Contract.county_code == county)
         if year:
@@ -69,6 +75,8 @@ def _overview(db: Session, county: str | None, year: int | None) -> S.Overview:
         sig = sig.where(RiskSignal.county_code == county)
     if year:
         sig = sig.where(RiskSignal.year == year)
+    if dcond is not None:
+        sig = sig.where(select(Contract.id).where(Contract.id == RiskSignal.contract_id, dcond).exists())
     n_sig = db.execute(sig).scalar_one()
     latest = list(
         db.execute(
@@ -177,6 +185,7 @@ def meta(
             "procedure_types": procs,
             "authority_types": sorted(atypes),
             "categories": all_categories(),
+            "domains": all_domains(),
             "signal_types": [{"code": k, "label": v} for k, v in SIGNAL_TYPES.items()],
         }
 

@@ -20,6 +20,7 @@ export default async function AuthoritiesPage({ searchParams }: { searchParams: 
     q: sp(searchParams.q),
     authority_type: sp(searchParams.authority_type),
     year: sp(searchParams.year),
+    domain: sp(searchParams.domain),
     sort: sp(searchParams.sort) ?? "total_desc",
   };
   const [data, meta] = await Promise.all([
@@ -48,6 +49,15 @@ export default async function AuthoritiesPage({ searchParams }: { searchParams: 
             {meta.years.map((y) => <option key={y}>{y}</option>)}
           </Select>
         </div>
+        {(meta.domains?.length ?? 0) > 0 && (
+          <div>
+            <label htmlFor="f-domain" className="text-sm font-medium">Domeniu</label>
+            <Select id="f-domain" name="domain" defaultValue={q.domain ?? ""}>
+              <option value="">Toate domeniile</option>
+              {meta.domains?.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+            </Select>
+          </div>
+        )}
         <div>
           <label htmlFor="f-sort" className="text-sm font-medium">Ordonare</label>
           <Select id="f-sort" name="sort" defaultValue={q.sort}>

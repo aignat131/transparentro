@@ -100,9 +100,10 @@ def export_authorities(
     q: str | None = None,
     authority_type: str | None = None,
     year: int | None = None,
+    domain: str | None = None,
     db: Session = Depends(get_db),
 ):
-    stmt, totals = authorities_query(county, q, authority_type, year)
+    stmt, totals = authorities_query(county, q, authority_type, year, domain)
 
     def rows():
         for a, t, n in db.execute(stmt.order_by(totals.c.total.desc().nulls_last()).limit(MAX_ROWS)).all():
@@ -133,9 +134,10 @@ def export_companies(
     q: str | None = None,
     year: int | None = None,
     with_signals: bool = Query(False),
+    domain: str | None = None,
     db: Session = Depends(get_db),
 ):
-    stmt, totals, _ = companies_query(county, q, year, with_signals)
+    stmt, totals, _ = companies_query(county, q, year, with_signals, domain)
 
     def rows():
         for c, t, n, ns in db.execute(stmt.order_by(totals.c.total.desc()).limit(MAX_ROWS)).all():

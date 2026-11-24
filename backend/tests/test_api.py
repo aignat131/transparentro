@@ -136,3 +136,20 @@ def test_openapi(client):
         "/risk-signals",
     ):
         assert p in j["paths"]
+
+
+def test_domain_filter(client, data):
+    m = client.get("/meta").json()
+    assert {"key": "constructii", "label": "Construcții și lucrări"} in m["domains"]
+    all_ov = client.get("/stats/overview").json()
+    ov = client.get("/stats/overview?domain=constructii").json()
+    assert 0 < ov["contracts"] < all_ov["contracts"]
+    j = client.get("/contracts?domain=constructii&page_size=100").json()
+    assert j["total"] == ov["contracts"]
+    assert all(i["cpv_code"][:2] in ("45", "44", "14") for i in j["items"])
+    comps = client.get("/companies?domain=constructii&page_size=200").json()
+    assert 0 < comps["total"] <= all_ov["companies"]
+    assert sum(c["contracts"] for c in comps["items"]) <= ov["contracts"]
+    auths = client.get("/authorities?domain=constructii&page_size=200").json()
+    assert auths["items"] and all(a["contracts"] > 0 for a in auths["items"])
+    assert client.get("/stats/overview?domain=necunoscut").json()["contracts"] == 0

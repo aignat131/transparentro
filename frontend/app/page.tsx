@@ -56,23 +56,29 @@ function Section({ id, title, intro, more, children }: {
 
 const ALL_YEARS = "toti";
 
-function YearPicker({ years, selected }: { years: number[]; selected: number | null }) {
+type Choice = { value: string | null; label: string };
+
+function Pills({ label, choices, selected, href }: {
+  label: string;
+  choices: Choice[];
+  selected: string | null;
+  href: (value: string | null) => string;
+}) {
   const pill = "rounded-full border px-3 py-1 text-sm no-underline transition-colors";
   const on = "border-primary bg-primary text-primary-foreground";
   const off = "bg-white text-foreground hover:border-primary hover:text-primary";
   return (
-    <nav aria-label="Alege anul" className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium">Anul:</span>
-      {years.map((y) => (
-        <Link key={y} href={`/?year=${y}`} scroll={false} aria-current={selected === y ? "page" : undefined}
-          className={`${pill} ${selected === y ? on : off}`}>
-          {y}
-        </Link>
-      ))}
-      <Link href={`/?year=${ALL_YEARS}`} scroll={false} aria-current={selected === null ? "page" : undefined}
-        className={`${pill} ${selected === null ? on : off}`}>
-        Toți anii
-      </Link>
+    <nav aria-label={`Alege ${label.toLowerCase()}`} className="flex flex-wrap items-center gap-2">
+      <span className="w-full text-sm font-medium sm:w-20">{label}:</span>
+      {choices.map((c) => {
+        const active = c.value === selected;
+        return (
+          <Link key={c.value ?? "_"} href={href(c.value)} scroll={false} aria-current={active ? "page" : undefined}
+            className={`${pill} ${active ? on : off}`}>
+            {c.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -81,25 +87,41 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
   const county = DEFAULT_COUNTY;
   const meta = await api<Meta>("/meta", { county }, 600);
   const years = [...meta.years].sort((a, b) => b - a);
-  const raw = Array.isArray(searchParams.year) ? searchParams.year[0] : searchParams.year;
+  const domains = meta.domains ?? [];
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const raw = one(searchParams.year);
   // implicit: cel mai recent an cu date; „toti” = toți anii
   const year: number | null =
     raw === ALL_YEARS ? null : raw && years.includes(Number(raw)) ? Number(raw) : (years[0] ?? null);
+  const rawDomain = one(searchParams.domain);
+  const domain = domains.find((d) => d.key === rawDomain) ?? null;
   const yq = year ?? undefined;
+  const dq = domain?.key;
   const [ov, ovAll, companies, biggest, authorities] = await Promise.all([
-    api<Overview>("/stats/overview", { county, year: yq }),
-    year === null ? null : api<Overview>("/stats/overview", { county }),
-    api<Page<CompanyItem>>("/companies", { county, year: yq, sort: "total_desc", page_size: 15 }),
-    api<Page<ContractItem>>("/contracts", { county, year: yq, sort: "value_desc", page_size: 10 }),
-    api<Page<AuthorityItem>>("/authorities", { county, year: yq, sort: "total_desc", page_size: 10 }),
+    api<Overview>("/stats/overview", { county, year: yq, domain: dq }),
+    year === null ? null : api<Overview>("/stats/overview", { county, domain: dq }),
+    api<Page<CompanyItem>>("/companies", { county, year: yq, domain: dq, sort: "total_desc", page_size: 15 }),
+    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "value_desc", page_size: 10 }),
+    api<Page<AuthorityItem>>("/authorities", { county, year: yq, domain: dq, sort: "total_desc", page_size: 10 }),
   ]);
   const countyName = ov.county_name ?? "județ";
   const inYear = year === null ? "" : ` în ${year}`;
-  const yearParam = year === null ? "" : `year=${year}`;
+  const filterParams = [year === null ? "" : `year=${year}`, dq ? `domain=${dq}` : ""];
   const withYear = (path: string, extra = "") => {
-    const q = [yearParam, extra].filter(Boolean).join("&");
+    const q = [...filterParams, extra].filter(Boolean).join("&");
     return q ? `${path}?${q}` : path;
   };
+  // linkurile din selectoare păstrează celălalt filtru
+  const homeHref = (y: string | null, d: string | null) => {
+    const q = [y ? `year=${y}` : "", d ? `domain=${d}` : ""].filter(Boolean).join("&");
+    return q ? `/?${q}` : "/";
+  };
+  const yearValue = year === null ? ALL_YEARS : String(year);
+  const yearChoices: Choice[] = [
+    ...years.map((y) => ({ value: String(y), label: String(y) })),
+    { value: ALL_YEARS, label: "Toți anii" },
+  ];
+  const domainChoices: Choice[] = [{ value: null, label: "Toate" }, ...domains.map((d) => ({ value: d.key, label: d.label }))];
   const coverageTo = ov.data.coverage_to;
   const yearUnfinished =
     year !== null && year === years[0] && coverageTo != null && coverageTo < `${year}-12-31`;
@@ -125,12 +147,20 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
           Ce firme au încasat cei mai mulți bani de la instituțiile publice, de la cine și pentru ce.
         </p>
         <div className="mt-5 space-y-3 rounded-lg border bg-white p-4">
-          <YearPicker years={years} selected={year} />
-          <p className="text-base">
+          <Pills label="Anul" choices={yearChoices} selected={yearValue} href={(v) => homeHref(v, dq ?? null)} />
+          {domains.length > 0 && (
+            <Pills label="Domeniul" choices={domainChoices} selected={dq ?? null} href={(v) => homeHref(yearValue, v)} />
+          )}
+          <p className="border-t pt-3 text-base">
             {year === null ? (
               <>Vezi datele pentru <strong>toți anii</strong></>
             ) : (
               <>Vezi datele pentru anul <strong>{year}</strong></>
+            )}
+            {domain ? (
+              <>, domeniul <strong>{domain.label}</strong></>
+            ) : (
+              <>, <strong>toate domeniile</strong></>
             )}
             {ov.data.coverage_from && (
               <span className="text-muted-foreground"> ({date(ov.data.coverage_from)} – {date(coverageTo)})</span>
