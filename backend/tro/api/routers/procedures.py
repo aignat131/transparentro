@@ -58,7 +58,7 @@ def _open_conditions(db: Session) -> list[Any]:
     newest = db.execute(select(func.max(Procedure.publication_date))).scalar()
     status = func.lower(func.unaccent(func.coalesce(Procedure.status, "")))
     has_contract = select(Contract.id).where(Contract.procedure_id == Procedure.id).exists()
-    conds: list[Any] = [not_(status.op("~")(CLOSED_STATUS)), not_(has_contract)]
+    conds: list[Any] = [not_(status.op("~", is_comparison=True)(CLOSED_STATUS)), not_(has_contract)]
     if newest:
         conds.append(Procedure.publication_date >= newest - OPEN_WINDOW)
     return conds

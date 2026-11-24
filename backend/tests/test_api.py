@@ -163,7 +163,8 @@ def test_open_procedures(client, data):
 
     from tro.models import Authority, Procedure
 
-    assert client.get("/procedures").json()["total"] == 0  # toate cele sintetice sunt atribuite
+    # toate cele sintetice sunt atribuite (alt URL decât mai jos: răspunsurile sunt în cache)
+    assert client.get("/procedures?page_size=10").json()["total"] == 0
     auth = data.execute(select(Authority)).scalars().first()
     newest = data.execute(select(func.max(Procedure.publication_date))).scalar()
     for i, (status, value, days) in enumerate(
