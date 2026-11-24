@@ -34,4 +34,6 @@ def is_ngo_name(name: str | None) -> bool:
 
 def ngo_condition(column: Any) -> Any:
     """Condiție SQL pe o coloană `name_normalized`."""
-    return and_(column.op("~", is_comparison=True)(NGO_PATTERN), not_(column.op("~", is_comparison=True)(NOT_NGO_PATTERN)))
+    return and_(
+        column.op("~", is_comparison=True)(NGO_PATTERN), not_(column.op("~", is_comparison=True)(NOT_NGO_PATTERN))
+    )
