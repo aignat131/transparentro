@@ -39,7 +39,9 @@ class Settings(BaseSettings):
     public_base_url: str = "http://localhost:3000"
     api_base_url: str = "http://localhost:8000"
 
-    # Faza 3
+    # Faza 3: explicații AI. Gemini are prioritate dacă are cheie; Claude rămâne ca alternativă.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash-lite"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5-5"
     mail_provider: str = "console"  # console | smtp

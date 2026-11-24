@@ -1,11 +1,11 @@
-"""Explicații și rezumate în limbaj simplu, generate cu Claude (Anthropic API).
+"""Explicații și rezumate în limbaj simplu, generate cu AI (Gemini; alternativ Claude).
 
 - /explain/{contract_id}: un contract (proiect); se păstrează în `contract_explanations`.
 - /explain/company/{key}: o firmă sau un ONG care a primit bani publici.
 - /explain/authority/{id}: o instituție (sau un ONG) care cumpără prin SEAP.
   Rezumatele se păstrează în `ai_summaries` și se regenerează după SUMMARY_MAX_AGE, pentru că datele se schimbă.
 
-Dezactivat automat dacă ANTHROPIC_API_KEY lipsește.
+Dezactivat automat dacă lipsesc și GEMINI_API_KEY și ANTHROPIC_API_KEY.
 Datele trimise sunt doar cele publice deja afișate pe pagină (persoanele fizice sunt anonimizate).
 """
 
@@ -55,12 +55,58 @@ SYSTEM_ENTITY = (
 )
 
 
-def _ask(system: str, content: str) -> tuple[str, str]:
-    """Trimite datele la Claude; întoarce (text, model). Ridică HTTPException la erori."""
-    s = get_settings()
-    if not s.anthropic_api_key:
-        raise HTTPException(503, "Explicațiile automate nu sunt activate pe acest server.")
+NOT_ENABLED = "Explicațiile automate nu sunt activate pe acest server."
 
+
+def _ask(system: str, content: str) -> tuple[str, str]:
+    """Trimite datele la modelul AI configurat; întoarce (text, model). Ridică HTTPException la erori.
+
+    Gemini dacă există GEMINI_API_KEY, altfel Claude dacă există ANTHROPIC_API_KEY.
+    """
+    s = get_settings()
+    if s.gemini_api_key:
+        return _ask_gemini(system, content)
+    if s.anthropic_api_key:
+        return _ask_claude(system, content)
+    raise HTTPException(503, NOT_ENABLED)
+
+
+def _ask_gemini(system: str, content: str) -> tuple[str, str]:
+    s = get_settings()
+    from google import genai  # import local: dependența e opțională la rulare
+    from google.genai import errors
+
+    client = genai.Client(api_key=s.gemini_api_key)
+    try:
+        # Vercel oprește funcția după ~60 s
+        # fără stream=True răspunsul e un singur Interaction
+        interaction: Any = client.interactions.create(
+            model=s.gemini_model,
+            system_instruction=system,
+            input=content,
+            generation_config={"max_output_tokens": 2000},
+            timeout=50.0,
+        )
+    except errors.APIError as exc:
+        if exc.code == 429:
+            raise HTTPException(429, "Prea multe cereri. Încercați peste un minut.") from exc
+        log.warning("Gemini API %s: %s", exc.code, exc.message)
+        raise HTTPException(502, "Serviciul de explicații nu a răspuns corect.") from exc
+    except Exception as exc:  # erori de rețea (httpx) sau de timp
+        log.warning("Gemini API: %s", exc)
+        raise HTTPException(502, "Serviciul de explicații nu poate fi contactat.") from exc
+
+    if interaction.status not in ("completed", "incomplete"):
+        log.warning("Gemini interaction %s: %s", interaction.status, interaction.errors)
+        raise HTTPException(422, "Nu am putut genera o explicație pentru aceste date.")
+    text = (interaction.output_text or "").strip()
+    if not text:
+        raise HTTPException(502, "Explicația generată este goală.")
+    return text, str(interaction.model or s.gemini_model)
+
+
+def _ask_claude(system: str, content: str) -> tuple[str, str]:
+    s = get_settings()
     import anthropic  # import local: dependența e opțională la rulare
 
     # Vercel oprește funcția după ~60 s: un singur reîncercat, cu limită de timp

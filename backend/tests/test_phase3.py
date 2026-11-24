@@ -81,6 +81,7 @@ def test_explain_disabled_without_key(client, data, monkeypatch):
     from tro.config import get_settings
 
     monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "")
     r = client.get("/explain/1")
     assert r.status_code == 503
 
@@ -96,6 +97,7 @@ def test_summary_disabled_without_key(client, data, monkeypatch):
     from tro.config import get_settings
 
     monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "")
     key = client.get("/companies?page_size=1").json()["items"][0]["key"]
     assert client.get(f"/explain/company/{key}").status_code == 503
     aid = client.get("/authorities?page_size=1").json()["items"][0]["id"]
@@ -175,3 +177,42 @@ def test_ngo_filter(client, data):
     a = client.get("/authorities?ngo=true").json()
     assert [x["name"] for x in a["items"]] == ["Fundația Comunitară Test"]
     assert client.get("/companies").json()["total"] > 1
+
+
+def test_gemini_is_used_when_configured(monkeypatch):
+    from types import SimpleNamespace
+
+    from google import genai
+
+    from tro.api.routers import explain
+    from tro.config import get_settings
+
+    calls: list[dict] = []
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            assert api_key == "cheie-test"
+            self.interactions = SimpleNamespace(create=self.create)
+
+        def create(self, **kw):
+            calls.append(kw)
+            return SimpleNamespace(
+                status="completed", output_text=" Rezumat Gemini. ", model="gemini-test", errors=None
+            )
+
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "cheie-test")
+    monkeypatch.setattr(genai, "Client", FakeClient)
+    assert explain._ask("sistem", "date") == ("Rezumat Gemini.", "gemini-test")
+    assert calls[0]["system_instruction"] == "sistem" and calls[0]["input"] == "date"
+    assert calls[0]["model"] == get_settings().gemini_model
+
+    def failed(**kw):
+        return SimpleNamespace(status="failed", output_text=None, model=None, errors=["blocat"])
+
+    monkeypatch.setattr(FakeClient, "create", lambda self, **kw: failed(**kw))
+    import pytest as _pytest
+    from fastapi import HTTPException
+
+    with _pytest.raises(HTTPException) as e:
+        explain._ask("sistem", "date")
+    assert e.value.status_code == 422
