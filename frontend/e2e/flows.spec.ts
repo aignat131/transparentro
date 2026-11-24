@@ -109,7 +109,7 @@ test("telefon: meniu și filtre strânse", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/firme");
   await expect(page.getByLabel("Denumire sau CUI")).toBeHidden();
-  await page.getByText("Meniu").click();
+  await page.getByText("Meniu", { exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Navigare principală (telefon)" }).getByRole("link", { name: "ONG-uri" })).toBeVisible();
   await page.getByText("Filtre și căutare").click();
   await expect(page.getByLabel("Denumire sau CUI")).toBeVisible();
