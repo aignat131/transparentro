@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { pageNum, Pagination, sp } from "@/components/pagination";
+import { ALL_YEARS, pickYear, Pills, yearChoices } from "@/components/pills";
 import { TotalsTable } from "@/components/tables";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, DEFAULT_COUNTY, type AuthorityItem, type CompanyItem, type Meta, type NamedTotal, type Page } from "@/lib/api";
@@ -12,17 +13,13 @@ export const metadata: Metadata = {
   description: "Asociațiile, fundațiile și cluburile sportive care primesc sau cheltuie bani publici prin achiziții.",
 };
 
-const ALL_YEARS = "toti";
 const PAGE_SIZE = 25;
 
 export default async function NgoPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const county = DEFAULT_COUNTY;
   const meta = await api<Meta>("/meta", { county }, 600);
   const years = [...meta.years].sort((a, b) => b - a);
-  const raw = sp(searchParams.year);
-  // implicit: cel mai recent an cu date; „toti” = toți anii
-  const year: number | null =
-    raw === ALL_YEARS ? null : raw && years.includes(Number(raw)) ? Number(raw) : (years[0] ?? null);
+  const year = pickYear(sp(searchParams.year), years);
   const yq = year ?? undefined;
   const page = pageNum(searchParams.page);
   const [receivers, buyers] = await Promise.all([
@@ -46,10 +43,6 @@ export default async function NgoPage({ searchParams }: { searchParams: Record<s
     share: null,
   }));
   const yearValue = year === null ? ALL_YEARS : String(year);
-  const pill = "rounded-full border px-3 py-1 text-sm no-underline transition-colors";
-  const on = "border-primary bg-primary text-primary-foreground";
-  const off = "bg-white text-foreground hover:border-primary hover:text-primary";
-  const choices = [...years.map((y) => ({ value: String(y), label: String(y) })), { value: ALL_YEARS, label: "Toți anii" }];
 
   return (
     <div className="space-y-8">
@@ -61,16 +54,7 @@ export default async function NgoPage({ searchParams }: { searchParams: Record<s
           din proiecte cu fonduri europene.
         </p>
         <div className="mt-4 space-y-3 rounded-lg border bg-white p-4">
-          <nav aria-label="Alege anul" className="flex flex-wrap items-center gap-2">
-            <span className="w-full text-sm font-medium sm:w-20">Anul:</span>
-            {choices.map((c) => (
-              <Link key={c.value} href={`/ong?year=${c.value}`} scroll={false}
-                aria-current={c.value === yearValue ? "page" : undefined}
-                className={`${pill} ${c.value === yearValue ? on : off}`}>
-                {c.label}
-              </Link>
-            ))}
-          </nav>
+          <Pills label="Anul" choices={yearChoices(years)} selected={yearValue} href={(v) => `/ong?year=${v}`} />
           <p className="border-t pt-3 text-base">
             {year === null ? <>Toți anii</> : <>Anul <strong>{year}</strong></>}: <strong>{num(receivers.total)}</strong> ONG-uri
             au primit bani publici, iar <strong>{num(buyers.total)}</strong> au cumpărat prin achiziții publice.

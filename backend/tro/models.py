@@ -181,6 +181,8 @@ class Procedure(TimestampMixin, Base):
     publication_date: Mapped[dt.date | None] = mapped_column(Date)
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
+    authority: Mapped[Authority] = relationship()
+
 
 class Contract(TimestampMixin, Base):
     """Contract / achiziție directă (OCDS: award + contract)."""

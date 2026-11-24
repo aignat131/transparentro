@@ -29,8 +29,25 @@ function Tip({ active, payload }: TipProps) {
   );
 }
 
+type BarRow = { label: string; total: number; count: number };
+
 export function YearChart({ data, title }: { data: YearTotal[]; title: string }) {
   const rows = data.map((d) => ({ label: String(d.year), total: Number(d.total_ron), count: d.count }));
+  return <Bars rows={rows} title={title} />;
+}
+
+const MONTHS = ["ian.", "feb.", "mar.", "apr.", "mai", "iun.", "iul.", "aug.", "sept.", "oct.", "nov.", "dec."];
+
+export function MonthChart({ data, title }: { data: { month: string; total_ron: string; count: number }[]; title: string }) {
+  const multiYear = new Set(data.map((d) => d.month.slice(0, 4))).size > 1;
+  const rows = data.map((d) => {
+    const m = MONTHS[Number(d.month.slice(5, 7)) - 1] ?? d.month;
+    return { label: multiYear ? `${m} ${d.month.slice(2, 4)}` : m, total: Number(d.total_ron), count: d.count };
+  });
+  return <Bars rows={rows} title={title} />;
+}
+
+function Bars({ rows, title }: { rows: BarRow[]; title: string }) {
   if (!rows.length) return <p className="text-muted-foreground">Nu există date.</p>;
   return (
     <figure>
@@ -54,7 +71,7 @@ export function YearChart({ data, title }: { data: YearTotal[]; title: string })
               isAnimationActive={false}
               maxBarSize={24}
               radius={[4, 4, 0, 0]}
-              label={{ position: "top", fill: "#0b0b0b", fontSize: 12, formatter: short }}
+              label={rows.length <= 12 ? { position: "top", fill: "#0b0b0b", fontSize: 12, formatter: short } : undefined}
             />
           </BarChart>
         </ResponsiveContainer>

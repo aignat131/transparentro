@@ -153,3 +153,64 @@ def test_domain_filter(client, data):
     auths = client.get("/authorities?domain=constructii&page_size=200").json()
     assert auths["items"] and all(a["contracts"] > 0 for a in auths["items"])
     assert client.get("/stats/overview?domain=necunoscut").json()["contracts"] == 0
+
+
+def test_open_procedures(client, data):
+    import datetime as dt
+    from decimal import Decimal
+
+    from sqlalchemy import func, select
+
+    from tro.models import Authority, Procedure
+
+    assert client.get("/procedures").json()["total"] == 0  # toate cele sintetice sunt atribuite
+    auth = data.execute(select(Authority)).scalars().first()
+    newest = data.execute(select(func.max(Procedure.publication_date))).scalar()
+    for i, (status, value, days) in enumerate(
+        [
+            ("In desfasurare", "80000", 5),
+            ("În desfășurare", "2500000", 10),
+            ("Anulata", "50000", 5),
+            ("In desfasurare", "60000", 400),  # prea veche ca să mai fie în curs
+        ]
+    ):
+        data.add(
+            Procedure(
+                source_id=f"t:open{i}",
+                authority_id=auth.id,
+                notice_number=f"CN-T{i}",
+                title=f"Servicii de test {i}",
+                cpv_code="45233140-2",
+                estimated_value_ron=Decimal(value),
+                status=status,
+                publication_date=newest - dt.timedelta(days=days),
+            )
+        )
+    data.commit()
+    j = client.get("/procedures").json()
+    assert sorted(p["notice_number"] for p in j["items"]) == ["CN-T0", "CN-T1"]
+    assert all(p["is_open"] and "e-licitatie.ro" in p["official_url"] for p in j["items"])
+    small = client.get("/procedures?max_value=100000").json()
+    assert [p["notice_number"] for p in small["items"]] == ["CN-T0"]
+    assert client.get("/procedures?domain=constructii").json()["total"] == 2
+    assert client.get("/procedures?domain=it").json()["total"] == 0
+    assert client.get("/procedures?q=test 1").json()["total"] == 1
+    every = client.get("/procedures?status=all&page_size=100").json()
+    assert every["total"] > 100
+    st = client.get("/procedures/statuses").json()
+    assert {"status": "Anulata", "count": 1} in st["statuses"]
+
+
+def test_spending_report(client, data):
+    ov = client.get("/stats/overview?year=2025").json()
+    r = client.get("/stats/report?year=2025").json()
+    assert r["year"] == 2025 and r["contracts"] == ov["contracts"]
+    assert abs(float(r["total_ron"]) - float(ov["total_ron"])) < 1
+    for part in ("by_domain", "by_contract_type", "by_procedure_type", "by_authority_type", "by_month"):
+        assert abs(sum(float(x["total_ron"]) for x in r[part]) - float(r["total_ron"])) < 1, part
+        assert sum(x["count"] for x in r[part]) == r["contracts"], part
+    assert all(x["key"] for x in r["by_domain"])
+    assert r["top_authorities"] and r["top_companies"]
+    assert all(m["month"].startswith("2025-") for m in r["by_month"])
+    assert float(r["direct_awards_ron"]) <= float(r["total_ron"])
+    assert client.get("/stats/report").json()["contracts"] >= r["contracts"]

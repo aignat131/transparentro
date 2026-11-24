@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CategoryChart, YearChart } from "@/components/charts";
+import { ALL_YEARS, type Choice, hrefWith, Pills } from "@/components/pills";
 import { ContractTable, TotalsTable } from "@/components/tables";
 import { Term } from "@/components/term";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,35 +52,6 @@ function Section({ id, title, intro, more, children }: {
         <CardContent className="pt-4">{children}</CardContent>
       </Card>
     </section>
-  );
-}
-
-const ALL_YEARS = "toti";
-
-type Choice = { value: string | null; label: string };
-
-function Pills({ label, choices, selected, href }: {
-  label: string;
-  choices: Choice[];
-  selected: string | null;
-  href: (value: string | null) => string;
-}) {
-  const pill = "rounded-full border px-3 py-1 text-sm no-underline transition-colors";
-  const on = "border-primary bg-primary text-primary-foreground";
-  const off = "bg-white text-foreground hover:border-primary hover:text-primary";
-  return (
-    <nav aria-label={`Alege ${label.toLowerCase()}`} className="flex flex-wrap items-center gap-2">
-      <span className="w-full text-sm font-medium sm:w-20">{label}:</span>
-      {choices.map((c) => {
-        const active = c.value === selected;
-        return (
-          <Link key={c.value ?? "_"} href={href(c.value)} scroll={false} aria-current={active ? "page" : undefined}
-            className={`${pill} ${active ? on : off}`}>
-            {c.label}
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -173,7 +145,8 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
             {ov.data.coverage_from && (
               <span className="text-muted-foreground"> ({date(ov.data.coverage_from)} – {date(coverageTo)})</span>
             )}
-            : {num(ov.contracts)} contracte în valoare de <strong>{leiShort(ov.total_ron)}</strong>.
+            : {num(ov.contracts)} contracte în valoare de <strong>{leiShort(ov.total_ron)}</strong>.{" "}
+            <Link href={hrefWith("/raport", { year: yearValue })}>Raportul complet →</Link>
           </p>
           {yearUnfinished && (
             <p className="text-sm text-amber-800">

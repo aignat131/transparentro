@@ -5,6 +5,8 @@ const NAV = [
   { href: "/firme", label: "Firme" },
   { href: "/ong", label: "ONG-uri" },
   { href: "/contracte", label: "Contracte" },
+  { href: "/raport", label: "Raport" },
+  { href: "/licitatii", label: "Licitații deschise" },
   { href: "/semnale", label: "Semnale" },
   { href: "/harta", label: "Hartă" },
   { href: "/metodologie", label: "Cum citesc datele?" },

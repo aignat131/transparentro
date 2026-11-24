@@ -31,11 +31,22 @@ def all_domains() -> list[dict[str, str]]:
     return [{"key": k, "label": v[0]} for k, v in DOMAINS.items()]
 
 
-def domain_condition(key: str | None) -> Any:
+def domain_condition(key: str | None, column: Any = None) -> Any:
     """Condiția SQL pentru contractele dintr-un domeniu; None dacă nu e cerut niciun domeniu."""
     if not key:
         return None
     d = DOMAINS.get(key)
     if d is None:
         return false()
-    return or_(*(Contract.cpv_code.like(f"{p}%") for p in d[1]))
+    col = Contract.cpv_code if column is None else column
+    return or_(*(col.like(f"{p}%") for p in d[1]))
+
+
+def domain_of(cpv: str | None) -> str | None:
+    """Cheia domeniului pentru un cod CPV (None dacă nu intră în niciun domeniu)."""
+    if not cpv:
+        return None
+    for k, (_, prefixes) in DOMAINS.items():
+        if cpv.startswith(prefixes):
+            return k
+    return None

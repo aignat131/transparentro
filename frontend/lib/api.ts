@@ -255,3 +255,42 @@ export type Meta = {
   signal_types: { code: string; label: string }[];
   domains?: { key: string; label: string }[];
 };
+
+export type ProcedureItem = {
+  id: number;
+  notice_number: string | null;
+  title: string | null;
+  authority: AuthorityRef;
+  authority_type: string | null;
+  procedure_type: string | null;
+  contract_type: string | null;
+  cpv_code: string | null;
+  category: string;
+  estimated_value_ron: string | null;
+  status: string | null;
+  publication_date: string | null;
+  official_url: string;
+  is_open: boolean;
+};
+
+export type SpendingReport = {
+  county_code: string | null;
+  county_name: string;
+  year: number | null;
+  total_ron: string;
+  contracts: number;
+  authorities: number;
+  companies: number;
+  by_domain: NamedTotal[];
+  by_category: NamedTotal[];
+  by_contract_type: NamedTotal[];
+  by_procedure_type: NamedTotal[];
+  by_authority_type: NamedTotal[];
+  by_month: { month: string; total_ron: string; count: number }[];
+  top_authorities: NamedTotal[];
+  top_companies: NamedTotal[];
+  ngo_total_ron: string;
+  ngo_contracts: number;
+  direct_awards_ron: string;
+  eu_funded_ron: string;
+};

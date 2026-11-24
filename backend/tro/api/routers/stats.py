@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from decimal import Decimal
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import distinct, func, select
@@ -13,9 +14,10 @@ from tro.api.common import contract_item, county_param, signal_counts
 from tro.counties import COUNTIES, county_name
 from tro.cpv import all_categories, cpv_category
 from tro.db import get_db
-from tro.domains import all_domains, domain_condition
+from tro.domains import DOMAINS, all_domains, domain_condition, domain_of
 from tro.etl.risk import SIGNAL_TYPES
-from tro.models import Authority, Contract, ImportRun, RiskSignal
+from tro.models import Authority, Company, Contract, ImportRun, RiskSignal
+from tro.ngo import ngo_condition
 
 router = APIRouter(tags=["statistici"])
 
@@ -120,6 +122,135 @@ def _overview(db: Session, county: str | None, year: int | None, domain: str | N
             coverage_from=cov_from,
             coverage_to=cov_to,
         ),
+    )
+
+
+@router.get("/stats/report", response_model=S.SpendingReport, summary="Raport: pe ce s-au dus banii")
+def report(
+    request: Request,
+    response: Response,
+    county: str | None = Depends(county_param),
+    year: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    return cache.cached(request, response, lambda: _report(db, county, year))
+
+
+def _report(db: Session, county: str | None, year: int | None) -> S.SpendingReport:
+    def cf(stmt):
+        stmt = stmt.where(Contract.duplicate_of_id.is_(None))
+        if county:
+            stmt = stmt.where(Contract.county_code == county)
+        if year:
+            stmt = stmt.where(Contract.year == year)
+        return stmt
+
+    agg = (func.coalesce(func.sum(Contract.value_ron), 0), func.count(Contract.id))
+    total, n, n_auth, n_comp = db.execute(
+        cf(
+            select(
+                *agg,
+                func.count(distinct(Contract.authority_id)),
+                func.count(distinct(Contract.company_id)),
+            )
+        )
+    ).one()
+    grand = Decimal(total or 0)
+
+    def nt(name: str, t: Decimal | None, k: int, key: str | None = None) -> S.NamedTotal:
+        t = Decimal(t or 0)
+        return S.NamedTotal(name=name, key=key, total_ron=t, count=k, share=float(t / grand) if grand else None)
+
+    def ranked(groups: dict[str, list[Any]], keys: dict[str, str] | None = None) -> list[S.NamedTotal]:
+        out = [nt(name, v[0], v[1], (keys or {}).get(name)) for name, v in groups.items()]
+        return sorted(out, key=lambda x: x.total_ron, reverse=True)
+
+    def group_by(col: Any, label_none: str) -> list[S.NamedTotal]:
+        rows = db.execute(cf(select(col, *agg)).group_by(col)).all()
+        g: dict[str, list[Any]] = defaultdict(lambda: [Decimal(0), 0])
+        for name, t, k in rows:
+            g[name or label_none][0] += t or Decimal(0)
+            g[name or label_none][1] += k
+        return ranked(g)
+
+    by_cpv = db.execute(cf(select(Contract.cpv_code, *agg)).group_by(Contract.cpv_code)).all()
+    dom: dict[str, list[Any]] = defaultdict(lambda: [Decimal(0), 0])
+    cat: dict[str, list[Any]] = defaultdict(lambda: [Decimal(0), 0])
+    dom_keys: dict[str, str] = {}
+    for code, t, k in by_cpv:
+        dk = domain_of(code)
+        label = DOMAINS[dk][0] if dk else "Altele / necunoscut"
+        dom_keys[label] = dk or "altele"
+        dom[label][0] += t or Decimal(0)
+        dom[label][1] += k
+        c = cpv_category(code)
+        cat[c][0] += t or Decimal(0)
+        cat[c][1] += k
+
+    month = func.to_char(Contract.contract_date, "YYYY-MM")
+    by_month = db.execute(
+        cf(select(month, *agg).where(Contract.contract_date.is_not(None))).group_by(month).order_by(month)
+    ).all()
+
+    top_auth = db.execute(
+        cf(select(Authority.id, Authority.name, *agg).join(Authority, Authority.id == Contract.authority_id))
+        .group_by(Authority.id)
+        .order_by(func.sum(Contract.value_ron).desc().nulls_last())
+        .limit(15)
+    ).all()
+    top_comp = db.execute(
+        cf(
+            select(Company.cui, Company.id, Company.is_natural_person, Company.name, *agg)
+            .join(Company, Company.id == Contract.company_id)
+            .where(Contract.repeat_same_company.is_(False))
+        )
+        .group_by(Company.id)
+        .order_by(func.sum(Contract.value_ron).desc().nulls_last())
+        .limit(15)
+    ).all()
+    auth_types = db.execute(
+        cf(select(Authority.authority_type, *agg).join(Authority, Authority.id == Contract.authority_id)).group_by(
+            Authority.authority_type
+        )
+    ).all()
+    at: dict[str, list[Any]] = defaultdict(lambda: [Decimal(0), 0])
+    for name, t, k in auth_types:
+        at[name or "Altă autoritate"][0] += t or Decimal(0)
+        at[name or "Altă autoritate"][1] += k
+
+    ngo_t, ngo_n = db.execute(
+        cf(
+            select(*agg)
+            .join(Company, Company.id == Contract.company_id)
+            .where(Company.is_natural_person.is_(False), ngo_condition(Company.name_normalized))
+        )
+    ).one()
+    direct = db.execute(cf(select(agg[0]).where(Contract.source.in_(["ad", "dan"])))).scalar_one()
+    eu = db.execute(cf(select(agg[0]).where(Contract.eu_funded.is_(True)))).scalar_one()
+
+    return S.SpendingReport(
+        county_code=county,
+        county_name=county_name(county) if county else "România",
+        year=year,
+        total_ron=grand,
+        contracts=n,
+        authorities=n_auth,
+        companies=n_comp,
+        by_domain=ranked(dom, dom_keys),
+        by_category=ranked(cat)[:20],
+        by_contract_type=group_by(Contract.contract_type, "Nespecificat"),
+        by_procedure_type=group_by(Contract.procedure_type, "Nespecificat"),
+        by_authority_type=ranked(at),
+        by_month=[S.MonthTotal(month=m, total_ron=t or Decimal(0), count=k) for m, t, k in by_month],
+        top_authorities=[nt(name, t, k, str(aid)) for aid, name, t, k in top_auth],
+        top_companies=[
+            nt("Persoană fizică autorizată" if pf else name, t, k, f"pf-{cid}" if pf else cui)
+            for cui, cid, pf, name, t, k in top_comp
+        ],
+        ngo_total_ron=Decimal(ngo_t or 0),
+        ngo_contracts=ngo_n,
+        direct_awards_ron=Decimal(direct or 0),
+        eu_funded_ron=Decimal(eu or 0),
     )
 
 

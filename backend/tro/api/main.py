@@ -17,6 +17,7 @@ from tro.api.routers import (
     contracts,
     export,
     feedback,
+    procedures,
     risk,
     search,
     stats,
@@ -64,7 +65,7 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-for r in (contracts, authorities, companies, search, stats, risk, export, feedback):
+for r in (contracts, authorities, companies, procedures, search, stats, risk, export, feedback):
     app.include_router(r.router)
 
 # Faza 3 (module opționale): alerte e-mail și explicații AI

@@ -89,3 +89,14 @@ test("pagina ONG-uri", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /ONG-urile care au primit/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: /ONG-urile care au cumpărat/ })).toBeVisible();
 });
+
+// Raportul de cheltuieli și licitațiile deschise.
+test("raport cheltuieli și licitații deschise", async ({ page }) => {
+  await page.goto("/raport");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("pe ce s-au dus banii");
+  await expect(page.getByRole("heading", { name: "Pe domenii" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Descarcă contractele/ })).toBeVisible();
+  await page.goto("/licitatii");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Licitații deschise");
+  await expect(page.getByRole("navigation", { name: "Alege valoare" })).toBeVisible();
+});

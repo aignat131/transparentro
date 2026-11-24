@@ -170,6 +170,36 @@ class AuthorityDetail(AuthorityItem):
     signal_count: int
 
 
+class MonthTotal(BaseModel):
+    month: str  # AAAA-LL
+    total_ron: Decimal
+    count: int
+
+
+class SpendingReport(BaseModel):
+    """Raport: pe ce s-au dus banii din toate achizițiile publice (SEAP), pe un an sau pe toți anii."""
+
+    county_code: str | None
+    county_name: str
+    year: int | None
+    total_ron: Decimal
+    contracts: int
+    authorities: int
+    companies: int
+    by_domain: list[NamedTotal]  # key = cheia domeniului; „altele” pentru codurile neîncadrate
+    by_category: list[NamedTotal]
+    by_contract_type: list[NamedTotal]
+    by_procedure_type: list[NamedTotal]
+    by_authority_type: list[NamedTotal]
+    by_month: list[MonthTotal]
+    top_authorities: list[NamedTotal]
+    top_companies: list[NamedTotal]
+    ngo_total_ron: Decimal
+    ngo_contracts: int
+    direct_awards_ron: Decimal
+    eu_funded_ron: Decimal
+
+
 class FinancialOut(BaseModel):
     year: int
     turnover_ron: Decimal | None
