@@ -70,7 +70,7 @@ def search(
                 type="company",
                 id=company_key(c),
                 title=c.display_name,
-                subtitle=(f"CUI {c.cui}" if (not c.is_natural_person and c.cui.isdigit()) else c.locality),
+                subtitle=(f"CUI {c.cui}" if (not c.pf and c.cui.isdigit()) else c.locality),
                 value_ron=t,
                 is_synthetic=c.is_synthetic,
             )

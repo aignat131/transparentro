@@ -121,8 +121,16 @@ class Company(TimestampMixin, Base):
     __table_args__ = (Index("ix_companies_search", "search_vector", postgresql_using="gin"),)
 
     @property
+    def pf(self) -> bool:
+        """Persoană fizică (se anonimizează). Verificăm și denumirea, nu doar marcajul din import:
+        o firmă văzută întâi sub alt nume poate să nu fi fost marcată la creare."""
+        from tro.normalize import is_natural_person
+
+        return bool(self.is_natural_person) or is_natural_person(name=self.name)
+
+    @property
     def display_name(self) -> str:
-        return "Persoană fizică autorizată" if self.is_natural_person else self.name
+        return "Persoană fizică autorizată" if self.pf else self.name
 
 
 class CompanyAlias(Base):

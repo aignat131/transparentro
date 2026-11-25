@@ -286,3 +286,29 @@ def test_upcoming_purchases(client, data):
     hit = [x for x in j if x["authority"]["id"] == auth.id and x["cpv_prefix"] == "906"]
     assert hit and hit[0]["month"] == m and hit[0]["years"][:2] == [2024, 2025]
     assert hit[0]["last_title"]
+
+
+def test_natural_person_detected_by_later_name(client, data):
+    """O firmă creată sub un nume neutru, dar care e de fapt PFA, nu-și arată numele."""
+    from sqlalchemy import select
+
+    from tro.etl.privacy import mark_natural_persons
+    from tro.models import Company, Contract
+
+    comp = (
+        data.execute(
+            select(Company)
+            .join(Contract, Contract.company_id == Company.id)
+            .where(Company.is_natural_person.is_(False))
+        )
+        .scalars()
+        .first()
+    )
+    comp.name = "Popescu A. Ion Persoană Fizică Autorizată"
+    data.commit()
+    # chiar înainte de reparare, API-ul nu afișează numele
+    names = {c["name"] for c in client.get("/companies?page_size=200").json()["items"]}
+    assert comp.name not in names
+    assert mark_natural_persons(data) >= 1
+    data.refresh(comp)
+    assert comp.is_natural_person is True

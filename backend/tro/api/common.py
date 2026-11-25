@@ -32,7 +32,7 @@ def county_param(
 
 
 def company_key(c: Company) -> str:
-    return f"pf-{c.id}" if c.is_natural_person else c.cui
+    return f"pf-{c.id}" if c.pf else c.cui
 
 
 def find_company(db: Session, key: str) -> Company:
@@ -43,7 +43,7 @@ def find_company(db: Session, key: str) -> Company:
     else:
         cui = normalize_cui(key) or key
         comp = db.execute(select(Company).where(Company.cui == cui)).scalar_one_or_none()
-        if comp and comp.is_natural_person:
+        if comp and comp.pf:
             comp = None  # persoanele fizice nu se pot căuta după CUI
     if comp is None:
         raise HTTPException(404, "Firma nu a fost găsită")
@@ -62,7 +62,7 @@ def company_ref(c: Company | None) -> S.CompanyRef | None:
     return S.CompanyRef(
         key=company_key(c),
         name=c.display_name,
-        is_natural_person=c.is_natural_person,
+        is_natural_person=c.pf,
         locality=c.locality,
         is_synthetic=c.is_synthetic,
     )

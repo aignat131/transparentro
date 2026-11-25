@@ -69,6 +69,7 @@ export function asPhrase(title: string | null | undefined, max = 140): string {
   let t = title.replace(/\s+/g, " ").trim().replace(/^["„”'«]+|["„”'»]+$/g, "");
   const letters = t.replace(/[^A-Za-zĂÂÎȘȚŞŢăâîșțşţ]/g, "");
   const upper = letters.replace(/[^A-ZĂÂÎȘȚŞŢ]/g, "").length;
+  t = t.replace(/\s*\(Rev\.\s*\d+\)/gi, ""); // „(Rev.2)” din denumirile CPV
   if (letters && upper / letters.length > 0.7) t = t.toLowerCase();
   else if (/^[A-ZĂÂÎȘȚŞŢ][a-zăâîșțşţ]/.test(t)) t = t.charAt(0).toLowerCase() + t.slice(1);
   if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, "") + "…";

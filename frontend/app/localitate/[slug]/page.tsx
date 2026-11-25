@@ -6,7 +6,7 @@ import { AskBox } from "@/components/actions";
 import { SubscribeForm } from "@/components/forms";
 import { sp } from "@/components/pagination";
 import { ALL_YEARS, hrefWith, pickYear, Pills, yearChoices } from "@/components/pills";
-import { StoryCard } from "@/components/story";
+import { StoryCard, toStories } from "@/components/story";
 import {
   api,
   DEFAULT_COUNTY,
@@ -51,8 +51,8 @@ export default async function LocalityPage({ params, searchParams }: {
   const [report, authorities, biggest, recent, open] = await Promise.all([
     api<SpendingReport>("/stats/report", { ...q, year: yq }),
     api<Page<AuthorityItem>>("/authorities", { ...q, year: yq, context: true, sort: "total_desc", page_size: 50 }),
-    api<Page<ContractItem>>("/contracts", { ...q, year: yq, sort: "value_desc", page_size: 5 }),
-    api<Page<ContractItem>>("/contracts", { ...q, year: yq, sort: "date_desc", min_value: 10_000, page_size: 5 }),
+    api<Page<ContractItem>>("/contracts", { ...q, year: yq, sort: "value_desc", page_size: 12 }),
+    api<Page<ContractItem>>("/contracts", { ...q, year: yq, sort: "date_desc", min_value: 10_000, page_size: 12 }),
     api<Page<ProcedureItem>>("/procedures", { ...q, status: "open", sort: "recent", page_size: 5 }),
   ]);
   const yearValue = year === null ? ALL_YEARS : String(year);
@@ -98,14 +98,14 @@ export default async function LocalityPage({ params, searchParams }: {
       {biggest.items.length > 0 && (
         <section aria-labelledby="mari" className="space-y-3">
           <h2 id="mari" className="text-xl">Cele mai mari cheltuieli</h2>
-          <ul className="space-y-3">{biggest.items.map((c, i) => <StoryCard key={c.id} c={c} badge={`Locul ${i + 1}`} />)}</ul>
+          <ul className="space-y-3">{toStories(biggest.items, 5).map((st, i) => <StoryCard key={st.c.id} c={st.c} partners={st.partners} badge={`Locul ${i + 1}`} />)}</ul>
         </section>
       )}
 
       {recent.items.length > 0 && (
         <section aria-labelledby="recente" className="space-y-3">
           <h2 id="recente" className="text-xl">Cele mai recente</h2>
-          <ul className="space-y-3">{recent.items.map((c) => <StoryCard key={c.id} c={c} />)}</ul>
+          <ul className="space-y-3">{toStories(recent.items, 5).map((st) => <StoryCard key={st.c.id} c={st.c} partners={st.partners} />)}</ul>
           <Link href={hrefWith("/contracte", { locality: loc.slug, year: year ? String(year) : null })} className="inline-block font-medium">
             Toate contractele din {loc.name} →
           </Link>

@@ -19,6 +19,7 @@ from tro.etl.risk import SIGNAL_TYPES
 from tro.localities import authority_ids, list_localities
 from tro.models import Authority, Company, Contract, ImportRun, RiskSignal
 from tro.ngo import ngo_condition
+from tro.normalize import is_natural_person
 
 router = APIRouter(tags=["statistici"])
 
@@ -250,8 +251,9 @@ def _report(db: Session, county: str | None, year: int | None, locality: str | N
         by_month=[S.MonthTotal(month=m, total_ron=t or Decimal(0), count=k) for m, t, k in by_month],
         top_authorities=[nt(name, t, k, str(aid)) for aid, name, t, k in top_auth],
         top_companies=[
-            nt("Persoană fizică autorizată" if pf else name, t, k, f"pf-{cid}" if pf else cui)
+            nt("Persoană fizică autorizată" if anon else name, t, k, f"pf-{cid}" if anon else cui)
             for cui, cid, pf, name, t, k in top_comp
+            for anon in [pf or is_natural_person(name=name)]
         ],
         ngo_total_ron=Decimal(ngo_t or 0),
         ngo_contracts=ngo_n,

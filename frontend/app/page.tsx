@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Bell, Briefcase, ChevronDown, MapPin, X } from "lucide-react";
 
 import { ALL_YEARS, hrefWith, pickYear } from "@/components/pills";
-import { StoryCard } from "@/components/story";
+import { StoryCard, toStories } from "@/components/story";
 import {
   api,
   DEFAULT_COUNTY,
@@ -62,9 +62,9 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
   const [report, localities, biggest, recent, signals] = await Promise.all([
     api<SpendingReport>("/stats/report", { county, year: yq }),
     api<Locality[]>("/localities", { county, year: yq }, 600),
-    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "value_desc", page_size: 5 }),
+    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "value_desc", page_size: 12 }),
     // „recente” interesante: peste 50.000 lei, ca să nu apară pixuri și hârtie
-    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "date_desc", min_value: 50_000, page_size: 5 }),
+    api<Page<ContractItem>>("/contracts", { county, year: yq, domain: dq, sort: "date_desc", min_value: 50_000, page_size: 12 }),
     dq ? null : api<Page<Signal>>("/risk-signals", { county, year: yq, sort: "score_desc", page_size: 3 }),
   ]);
   const yearValue = year === null ? ALL_YEARS : String(year);
@@ -120,14 +120,14 @@ export default async function Home({ searchParams }: { searchParams: Record<stri
           Cele mai mari cheltuieli{domain ? ` (${domain.label.toLowerCase()})` : ""}
         </H2>
         <ul className="space-y-3">
-          {biggest.items.map((c, i) => <StoryCard key={c.id} c={c} badge={`Locul ${i + 1}`} />)}
+          {toStories(biggest.items, 5).map((st, i) => <StoryCard key={st.c.id} c={st.c} partners={st.partners} badge={`Locul ${i + 1}`} />)}
         </ul>
       </section>
 
       <section aria-labelledby="recente" className="space-y-3">
         <H2 id="recente" intro="Ultimele contracte de peste 50.000 lei.">Cele mai recente</H2>
         <ul className="space-y-3">
-          {recent.items.map((c) => <StoryCard key={c.id} c={c} />)}
+          {toStories(recent.items, 5).map((st) => <StoryCard key={st.c.id} c={st.c} partners={st.partners} />)}
         </ul>
         <Link href={hrefWith("/contracte", { year: year ? String(year) : null, domain: dq })} className="inline-block font-medium">
           Toate contractele →

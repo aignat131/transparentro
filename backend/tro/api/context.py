@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from tro.cpv import cpv_category
 from tro.domains import domain_condition
 from tro.models import Authority, Company, Contract
+from tro.normalize import is_natural_person
 
 
 def _filters(county: str | None, year: int | None, domain: str | None, dedupe: bool) -> list[Any]:
@@ -82,5 +83,6 @@ def authority_context(
     ).all():
         t = t or Decimal(0)
         if aid not in best or t > best[aid][0]:
-            best[aid] = (t, "o persoană fizică autorizată" if pf else name)
+            anon = pf or is_natural_person(name=name)
+            best[aid] = (t, "o persoană fizică autorizată" if anon else name)
     return {i: (cats.get(i), best[i][1] if i in best else None) for i in ids}

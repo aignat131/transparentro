@@ -110,14 +110,14 @@ def company_item(c: Company, total: Decimal | None, n: int | None, ns: int | Non
     return S.CompanyItem(
         key=company_key(c),
         name=c.display_name,
-        is_natural_person=c.is_natural_person,
+        is_natural_person=c.pf,
         locality=c.locality,
         county_code=c.county_code,
         total_ron=total or Decimal(0),
         contracts=n or 0,
         signal_count=ns or 0,
         is_synthetic=c.is_synthetic,
-        is_ngo=not c.is_natural_person and is_ngo_name(c.name),
+        is_ngo=not c.pf and is_ngo_name(c.name),
     )
 
 
@@ -128,7 +128,7 @@ def get_company(key: str, request: Request, response: Response, db: Session = De
 
 
 def _company_detail(db: Session, c: Company) -> S.CompanyDetail:
-    pf = c.is_natural_person
+    pf = c.pf
     by_year = db.execute(
         select(Contract.year, func.sum(Contract.value_ron), func.count())
         .where(Contract.company_id == c.id, Contract.year.is_not(None), Contract.repeat_same_company.is_(False))

@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
 
-    from tro.etl import risk, synthetic
+    from tro.etl import privacy, risk, synthetic
     from tro.etl.sources import anaf, bnr, geocode, onrc, seap
 
     with session_scope() as session:
@@ -90,7 +90,10 @@ def main(argv: list[str] | None = None) -> int:
                 seap.import_seap(session, years, quarters, kinds, force=args.force)
             if args.cmd == "all":
                 # fiecare etapă e independentă: o sursă indisponibilă nu oprește restul
-                steps: list[tuple[str, Callable[[], object]]] = [("anaf", lambda: anaf.enrich_companies(session))]
+                steps: list[tuple[str, Callable[[], object]]] = [
+                    ("persoane fizice", lambda: privacy.mark_natural_persons(session)),
+                    ("anaf", lambda: anaf.enrich_companies(session)),
+                ]
                 if not args.skip_bilant:
                     steps.append(("bilant", lambda: anaf.import_bilant(session)))
                 steps += [
