@@ -15,6 +15,7 @@ from tro.api.context import authority_context
 from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
+from tro.localities import authority_ids
 from tro.models import Authority, Company, Contract, RiskSignal
 from tro.ngo import ngo_condition
 
@@ -30,6 +31,7 @@ def authorities_query(
     year: int | None,
     domain: str | None = None,
     ngo: bool = False,
+    locality_ids: list[int] | None = None,
 ):
     dcond = domain_condition(domain)
     totals = (
@@ -51,6 +53,8 @@ def authorities_query(
         stmt = stmt.where(totals.c.n > 0)
     if ngo:
         stmt = stmt.where(ngo_condition(Authority.name_normalized), totals.c.n > 0)
+    if locality_ids is not None:
+        stmt = stmt.where(Authority.id.in_(locality_ids))
     if county:
         stmt = stmt.where(Authority.county_code == county)
     if authority_type:
@@ -71,12 +75,14 @@ def list_authorities(
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
     context: bool = Query(False, description="Adaugă categoria principală și partenerul principal"),
+    locality: str | None = Query(None, description="Localitate (slug din /localities), ex. medias"),
     sort: str = Query("total_desc", pattern="^(total_desc|name_asc|contracts_desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals = authorities_query(county, q, authority_type, year, domain, ngo)
+    loc_ids = authority_ids(db, county, locality) if locality else None
+    stmt, totals = authorities_query(county, q, authority_type, year, domain, ngo, loc_ids)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (func.coalesce(totals.c.total, 0).desc(), Authority.id),

@@ -15,6 +15,7 @@ from tro.api.context import company_context
 from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
+from tro.localities import authority_ids
 from tro.models import Authority, Company, CompanyAlias, CompanyFinancial, Contract, RiskSignal
 from tro.ngo import is_ngo_name, ngo_condition
 
@@ -28,8 +29,11 @@ def companies_query(
     with_signals: bool,
     domain: str | None = None,
     ngo: bool = False,
+    locality_ids: list[int] | None = None,
 ):
     cfilter: list[Any] = [Contract.company_id.is_not(None), Contract.repeat_same_company.is_(False)]
+    if locality_ids is not None:
+        cfilter.append(Contract.authority_id.in_(locality_ids))
     dcond = domain_condition(domain)
     if dcond is not None:
         cfilter.append(dcond)
@@ -77,13 +81,15 @@ def list_companies(
     with_signals: bool = Query(False),
     ngo: bool = Query(False, description="Doar ONG-uri (asociații, fundații, federații, cluburi sportive)"),
     context: bool = Query(False, description="Adaugă categoria principală și partenerul principal"),
+    locality: str | None = Query(None, description="Localitate (slug din /localities), ex. medias"),
     domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
     sort: str = Query("total_desc", pattern="^(total_desc|contracts_desc|signals_desc|name_asc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    stmt, totals, sig = companies_query(county, q, year, with_signals, domain, ngo)
+    loc_ids = authority_ids(db, county, locality) if locality else None
+    stmt, totals, sig = companies_query(county, q, year, with_signals, domain, ngo, loc_ids)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     order = {
         "total_desc": (totals.c.total.desc(), Company.id),

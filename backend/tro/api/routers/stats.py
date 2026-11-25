@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session, selectinload
 from tro.api import cache
 from tro.api import schemas as S
 from tro.api.common import contract_item, county_param, signal_counts
-from tro.counties import COUNTIES, county_name
+from tro.counties import COUNTIES, POPULATION_2021, county_name
 from tro.cpv import all_categories, cpv_category
 from tro.db import get_db
 from tro.domains import DOMAINS, all_domains, domain_condition, domain_of
 from tro.etl.risk import SIGNAL_TYPES
+from tro.localities import authority_ids, list_localities
 from tro.models import Authority, Company, Contract, ImportRun, RiskSignal
 from tro.ngo import ngo_condition
 
@@ -131,14 +132,19 @@ def report(
     response: Response,
     county: str | None = Depends(county_param),
     year: int | None = Query(None),
+    locality: str | None = Query(None, description="Localitate (slug din /localities), ex. medias"),
     db: Session = Depends(get_db),
 ):
-    return cache.cached(request, response, lambda: _report(db, county, year))
+    return cache.cached(request, response, lambda: _report(db, county, year, locality))
 
 
-def _report(db: Session, county: str | None, year: int | None) -> S.SpendingReport:
+def _report(db: Session, county: str | None, year: int | None, locality: str | None = None) -> S.SpendingReport:
+    loc_ids = authority_ids(db, county, locality) if locality else None
+
     def cf(stmt):
         stmt = stmt.where(Contract.duplicate_of_id.is_(None))
+        if loc_ids is not None:
+            stmt = stmt.where(Contract.authority_id.in_(loc_ids))
         if county:
             stmt = stmt.where(Contract.county_code == county)
         if year:
@@ -254,6 +260,17 @@ def _report(db: Session, county: str | None, year: int | None) -> S.SpendingRepo
     )
 
 
+@router.get("/localities", summary="Localitățile din județ (după sediul instituțiilor), cu totaluri")
+def localities(
+    request: Request,
+    response: Response,
+    county: str | None = Depends(county_param),
+    year: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    return cache.cached(request, response, lambda: list_localities(db, county, year))
+
+
 @router.get("/map/authorities", response_model=list[S.MapPoint], summary="Instituții cu coordonate (hartă)")
 def map_authorities(
     request: Request,
@@ -318,6 +335,7 @@ def meta(
             "categories": all_categories(),
             "domains": all_domains(),
             "signal_types": [{"code": k, "label": v} for k, v in SIGNAL_TYPES.items()],
+            "population": POPULATION_2021.get(county or ""),
         }
 
     return cache.cached(request, response, compute)

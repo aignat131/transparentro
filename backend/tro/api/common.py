@@ -165,7 +165,8 @@ class ContractFilters:
         domain: str | None = Query(None, description="Domeniu de cheltuieli (vezi /meta → domains)"),
         authority_id: int | None = Query(None),
         company: str | None = Query(None, description="CUI sau cheia firmei"),
-        source: str | None = Query(None, description="ad | dan | contracte | atribuire_fara"),
+        source: str | None = Query(None, description="ad | dan | contracte | atribuire_fara (mai multe: cu virgulă)"),
+        locality: str | None = Query(None, description="Localitate (slug din /localities), ex. medias"),
         q: str | None = Query(None, max_length=200, description="Text liber (obiect, CPV, număr anunț)"),
         with_signals: bool = Query(False, description="Doar contractele cu semnale de verificat"),
         sort: str = Query("date_desc", pattern="^(date_desc|date_asc|value_desc|value_asc)$"),
@@ -180,6 +181,7 @@ class ContractFilters:
         self.authority_id = authority_id
         self.company = company
         self.source = source
+        self.locality = locality
         self.q = q
         self.with_signals = with_signals
         self.sort = sort
@@ -208,7 +210,11 @@ class ContractFilters:
             comp = find_company(db, self.company)
             stmt = stmt.where(Contract.company_id == comp.id)
         if self.source:
-            stmt = stmt.where(Contract.source == self.source)
+            stmt = stmt.where(Contract.source.in_([x.strip() for x in self.source.split(",") if x.strip()]))
+        if self.locality:
+            from tro.localities import authority_ids
+
+            stmt = stmt.where(Contract.authority_id.in_(authority_ids(db, self.county, self.locality)))
         if self.q:
             tq = ts_query(self.q)
             if tq is not None:

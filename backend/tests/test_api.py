@@ -231,3 +231,58 @@ def test_list_context(client, data):
     names = set(data.execute(select(Company.name).where(Company.is_natural_person.is_(True))).scalars())
     every = client.get("/authorities?context=true&page_size=200").json()["items"]
     assert not names & {x["top_supplier"] for x in every}
+
+
+def test_localities_and_locality_filter(client, data):
+    locs = client.get("/localities").json()
+    assert locs and all(x["slug"] and x["name"] for x in locs)
+    top = locs[0]
+    ov = client.get("/stats/overview").json()
+    assert sum(x["contracts"] for x in locs) == ov["contracts"]
+    c = client.get(f"/contracts?locality={top['slug']}&page_size=1").json()
+    assert c["total"] == top["contracts"]
+    a = client.get(f"/authorities?locality={top['slug']}&page_size=200").json()
+    assert a["total"] == top["authorities"]
+    r = client.get(f"/stats/report?locality={top['slug']}").json()
+    assert r["contracts"] == top["contracts"]
+    assert client.get("/contracts?locality=nu-exista").json()["total"] == 0
+    assert client.get("/meta").json()["population"] == 388_325
+
+
+def test_locality_names():
+    from tro.localities import locality_name, slugify
+
+    assert locality_name("Orş. Cisnădie") == "Cisnădie"
+    assert locality_name("Richiş Com. Biertan") == "Biertan"
+    assert slugify(locality_name("Şelimbăr Com. Şelimbăr")) == "selimbar"
+
+
+def test_upcoming_purchases(client, data):
+    import datetime as dt
+    from decimal import Decimal
+
+    from sqlalchemy import select
+
+    from tro.models import Authority, Contract
+
+    auth = data.execute(select(Authority)).scalars().first()
+    m = dt.date.today().month % 12 + 1  # luna viitoare
+    for y in (2024, 2025):
+        data.add(
+            Contract(
+                source_id=f"t:snow{y}",
+                source="ad",
+                authority_id=auth.id,
+                county_code="SB",
+                title=f"Deszăpezire iarna {y}",
+                cpv_code="90620000-9",
+                value_ron=Decimal("90000"),
+                contract_date=dt.date(y, m, 10),
+                year=y,
+            )
+        )
+    data.commit()
+    j = client.get("/procedures/upcoming?min_value=50000&limit=100").json()
+    hit = [x for x in j if x["authority"]["id"] == auth.id and x["cpv_prefix"] == "906"]
+    assert hit and hit[0]["month"] == m and hit[0]["years"][:2] == [2024, 2025]
+    assert hit[0]["last_title"]

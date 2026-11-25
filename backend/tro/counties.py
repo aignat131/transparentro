@@ -68,3 +68,9 @@ def county_name(code: str | None) -> str | None:
         return None
     c = COUNTIES.get(code.upper())
     return c[0] if c else None
+
+
+# Populația rezidentă la recensământul din 2021 (INS), pentru calculul „lei pe locuitor”.
+POPULATION_2021: dict[str, int] = {
+    "SB": 388_325,
+}

@@ -22,6 +22,7 @@ from tro.api.common import authority_ref, county_param
 from tro.cpv import cpv_category
 from tro.db import get_db
 from tro.domains import domain_condition
+from tro.localities import authority_ids
 from tro.models import Authority, Contract, Procedure
 
 router = APIRouter(prefix="/procedures", tags=["licitații"])
@@ -73,6 +74,7 @@ def list_procedures(
     max_value: float | None = Query(None, ge=0, description="Valoare estimată maximă (lei)"),
     authority_type: str | None = Query(None),
     domain: str | None = Query(None),
+    locality: str | None = Query(None, description="Localitate (slug din /localities)"),
     q: str | None = Query(None, max_length=200),
     sort: str = Query("recent", pattern="^(recent|value_desc|value_asc)$"),
     page: int = Query(1, ge=1),
@@ -90,6 +92,8 @@ def list_procedures(
             stmt = stmt.where(Procedure.estimated_value_ron <= max_value)
         if authority_type:
             stmt = stmt.where(Authority.authority_type == authority_type)
+        if locality:
+            stmt = stmt.where(Authority.id.in_(authority_ids(db, county, locality)))
         dcond = domain_condition(domain, Procedure.cpv_code)
         if dcond is not None:
             stmt = stmt.where(dcond)
@@ -148,3 +152,97 @@ def statuses(county: str | None = Depends(county_param), db: Session = Depends(g
     rows = db.execute(stmt.group_by(Procedure.status).order_by(func.count().desc())).all()
     newest = db.execute(select(func.max(Procedure.publication_date))).scalar()
     return {"newest_publication": newest, "statuses": [{"status": s, "count": n} for s, n in rows]}
+
+
+MONTHS_RO = [
+    "ianuarie", "februarie", "martie", "aprilie", "mai", "iunie",
+    "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie",
+]  # fmt: skip
+
+
+class UpcomingItem(BaseModel):
+    authority: S.AuthorityRef
+    category: str
+    cpv_prefix: str
+    month: int
+    month_name: str
+    years: list[int]
+    typical_value_ron: Any
+    last_title: str | None
+
+
+@router.get("/upcoming", response_model=list[UpcomingItem], summary="Ce urmează probabil: cumpărături care se repetă")
+def upcoming(
+    request: Request,
+    response: Response,
+    county: str | None = Depends(county_param),
+    locality: str | None = Query(None),
+    months: int = Query(3, ge=1, le=12, description="Câte luni înainte"),
+    min_value: float = Query(20_000, ge=0),
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Instituțiile cumpără multe lucruri în fiecare an, cam în aceeași lună (deszăpezire, rechizite,
+    întreținerea parcurilor). Căutăm grupele CPV (3 cifre) cumpărate de aceeași instituție, în aceeași
+    lună, în cel puțin doi ani diferiți, pentru lunile care urmează."""
+
+    def compute() -> list[UpcomingItem]:
+        today = dt.date.today()
+        wanted = [((today.month - 1 + i) % 12) + 1 for i in range(1, months + 1)]
+        month = func.extract("month", Contract.contract_date)
+        prefix = func.substr(Contract.cpv_code, 1, 3)
+        stmt = (
+            select(
+                Contract.authority_id,
+                prefix.label("pfx"),
+                month.label("m"),
+                func.array_agg(func.distinct(Contract.year)).label("years"),
+                func.avg(Contract.value_ron).label("avg"),
+                func.max(Contract.contract_date).label("last"),
+            )
+            .where(
+                Contract.duplicate_of_id.is_(None),
+                Contract.contract_date.is_not(None),
+                Contract.cpv_code.is_not(None),
+                Contract.value_ron >= min_value,
+                month.in_(wanted),
+            )
+            .group_by(Contract.authority_id, prefix, month)
+            .having(func.count(func.distinct(Contract.year)) >= 2)
+        )
+        if county:
+            stmt = stmt.where(Contract.county_code == county)
+        if locality:
+            stmt = stmt.where(Contract.authority_id.in_(authority_ids(db, county, locality)))
+        rows = list(db.execute(stmt).all())
+        # cele mai apropiate luni întâi, apoi după valoare
+        rows.sort(key=lambda r: (wanted.index(int(r.m)), -(r.avg or 0)))
+        rows = rows[:limit]
+        ids = {r.authority_id for r in rows}
+        auths = {a.id: a for a in db.execute(select(Authority).where(Authority.id.in_(ids))).scalars()}
+        out = []
+        for r in rows:
+            title = db.execute(
+                select(Contract.title)
+                .where(
+                    Contract.authority_id == r.authority_id,
+                    Contract.cpv_code.like(f"{r.pfx}%"),
+                    Contract.contract_date == r.last,
+                )
+                .limit(1)
+            ).scalar()
+            out.append(
+                UpcomingItem(
+                    authority=authority_ref(auths[r.authority_id]),  # type: ignore[arg-type]
+                    category=cpv_category(f"{r.pfx}00000"),
+                    cpv_prefix=r.pfx,
+                    month=int(r.m),
+                    month_name=MONTHS_RO[int(r.m) - 1],
+                    years=sorted(y for y in r.years if y),
+                    typical_value_ron=r.avg,
+                    last_title=title,
+                )
+            )
+        return out
+
+    return cache.cached(request, response, compute)
