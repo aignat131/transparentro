@@ -4,10 +4,10 @@ import { Menu } from "lucide-react";
 // Puține linkuri, pentru cetățeanul curios; restul paginilor sunt în meniul de jos (footer).
 const NAV = [
   { href: "/", label: "Acasă" },
+  { href: "/localitati", label: "Localitatea ta" },
   { href: "/firme", label: "Firme" },
   { href: "/institutii", label: "Instituții" },
-  { href: "/ong", label: "ONG-uri" },
-  { href: "/raport", label: "Raport" },
+  { href: "/oportunitati", label: "Oportunități" },
   { href: "/cautare", label: "Caută" },
 ];
 
@@ -65,7 +65,8 @@ export function SiteFooter() {
         <ul className="space-y-1">
           <li><Link href="/contracte">Toate contractele</Link></li>
           <li><Link href="/semnale">Semnale de verificat</Link></li>
-          <li><Link href="/licitatii">Licitații deschise (pentru firme și ONG-uri)</Link></li>
+          <li><Link href="/raport">Raport: pe ce s-au dus banii</Link></li>
+          <li><Link href="/ong">ONG-uri și banii publici</Link></li>
           <li><Link href="/harta">Hartă</Link></li>
           <li><Link href="/metodologie">Metodologie</Link></li>
           <li><Link href="/surse-de-date">Surse de date</Link></li>

@@ -40,3 +40,37 @@ export function date(v: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return v;
   return d.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
+
+const LOWER_WORDS = new Set(["de", "din", "si", "și", "la", "cu", "pentru", "a", "al", "ale", "in", "în", "pe", "sau"]);
+const KEEP_UPPER = /^(S\.?A\.?|S\.?R\.?L\.?|R\.?A\.?|SRL|SA|RA|UAT|DGASPC|ISU|CJ|ONG|IT|SMIS|II|III|IV)$/;
+
+/** „SPITALUL CLINIC JUDETEAN” → „Spitalul Clinic Judetean”; textele scrise normal rămân la fel. */
+export function prettyName(s: string | null | undefined): string {
+  if (!s) return "";
+  const letters = s.replace(/[^A-Za-zĂÂÎȘȚŞŢăâîșțşţ]/g, "");
+  const upper = letters.replace(/[^A-ZĂÂÎȘȚŞŢ]/g, "").length;
+  if (!letters || upper / letters.length < 0.7) return s.trim();
+  return s
+    .trim()
+    .toLowerCase()
+    .split(/(\s+)/)
+    .map((w, i) => {
+      if (/^\s+$/.test(w)) return w;
+      if (KEEP_UPPER.test(w.toUpperCase())) return w.toUpperCase();
+      if (i > 0 && LOWER_WORDS.has(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join("");
+}
+
+/** Obiectul unui contract ca bucată de propoziție: fără majuscule în exces, scurtat. */
+export function asPhrase(title: string | null | undefined, max = 140): string {
+  if (!title) return "un contract fără descriere";
+  let t = title.replace(/\s+/g, " ").trim().replace(/^["„”'«]+|["„”'»]+$/g, "");
+  const letters = t.replace(/[^A-Za-zĂÂÎȘȚŞŢăâîșțşţ]/g, "");
+  const upper = letters.replace(/[^A-ZĂÂÎȘȚŞŢ]/g, "").length;
+  if (letters && upper / letters.length > 0.7) t = t.toLowerCase();
+  else if (/^[A-ZĂÂÎȘȚŞŢ][a-zăâîșțşţ]/.test(t)) t = t.charAt(0).toLowerCase() + t.slice(1);
+  if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, "") + "…";
+  return t;
+}

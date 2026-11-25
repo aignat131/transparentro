@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 
 import { SyntheticBadge } from "@/components/data-banner";
+import { AskBox, ShareButton } from "@/components/actions";
 import { ExplainBox } from "@/components/forms";
+import { storyText } from "@/components/story";
 import { SignalCard, SignalsNote } from "@/components/signals";
 import { CompanyLink } from "@/components/tables";
 import { Term } from "@/components/term";
@@ -103,7 +105,22 @@ export default async function ContractPage({ params }: { params: { id: string } 
         </section>
       )}
 
+      <div className="flex justify-end">
+        <ShareButton title="TransparentRO" text={storyText(c).headline} path={`/contracte/${c.id}`} />
+      </div>
+
       <ExplainBox path={`/explain/${c.id}`} />
+
+      <AskBox
+        institution={c.authority.name}
+        subject={`contractul ${c.contract_number ? `nr. ${c.contract_number}` : ""}${c.notice_number ? ` (anunț ${c.notice_number})` : ""} „${(c.title ?? "").slice(0, 120)}”`}
+        questions={[
+          "O copie a contractului și a eventualelor acte adiționale.",
+          "Stadiul executării: ce s-a livrat sau realizat până acum și dacă termenele au fost respectate.",
+          "Sumele plătite până la această dată furnizorului.",
+          "Procesele-verbale de recepție, dacă există.",
+        ]}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

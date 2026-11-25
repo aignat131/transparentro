@@ -28,6 +28,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
     cpv: sp(searchParams.cpv),
     authority_id: sp(searchParams.authority_id),
     company: sp(searchParams.company),
+    locality: sp(searchParams.locality),
     with_signals: sp(searchParams.with_signals) === "true",
     sort: sp(searchParams.sort) ?? "date_desc",
   };
@@ -39,8 +40,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Re
   return (
     <div className="space-y-4">
       <h1 className="text-2xl">Contracte publice</h1>
-      <FilterPanel active={[q.q && `„${q.q}”`, q.year, meta.domains?.find((d) => d.key === q.domain)?.label, q.procedure_type, q.with_signals && "cu semnale"]}>
+      <FilterPanel active={[q.q && `„${q.q}”`, q.year, meta.domains?.find((d) => d.key === q.domain)?.label, q.procedure_type, q.locality && `localitatea ${q.locality}`, q.with_signals && "cu semnale"]}>
       <form method="get" className="grid gap-3 p-4 md:grid-cols-4" aria-label="Filtre contracte">
+        {q.locality && <input type="hidden" name="locality" value={q.locality} />}
         <div className="md:col-span-2">
           <label htmlFor="f-q" className="text-sm font-medium">Text (obiect, număr anunț)</label>
           <Input id="f-q" name="q" defaultValue={q.q} placeholder="ex. asfaltare, laptop, SCNA1126001" />

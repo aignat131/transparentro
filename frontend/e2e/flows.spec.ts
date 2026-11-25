@@ -5,7 +5,8 @@ test("căutare → profil firmă → contract", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("instituțiile publice");
   await expect(page.getByRole("heading", { name: "Pe ce s-au dus banii" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Cine a primit cei mai mulți bani/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Cele mai mari cheltuieli/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cele mai recente" })).toBeVisible();
   // primul furnizor din lista de firme, căutat după nume fără diacritice
   await page.goto("/firme");
   const first = page.locator("main ul li a").first();
@@ -99,9 +100,14 @@ test("raport cheltuieli și licitații deschise", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("pe ce s-au dus banii");
   await expect(page.getByRole("heading", { name: "Pe domenii" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Descarcă contractele/ })).toBeVisible();
-  await page.goto("/licitatii");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Licitații deschise");
-  await expect(page.getByRole("navigation", { name: "Alege valoare" })).toBeVisible();
+  await page.goto("/licitatii"); // redirecționează la oportunități
+  await expect(page).toHaveURL(/\/oportunitati/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Oportunități");
+  for (const tab of ["Câștigate recent", "Ce urmează", "Finanțări ONG"]) {
+    await page.getByRole("navigation", { name: "Alege arată" }).getByRole("link", { name: tab }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Oportunități");
+  }
+  await expect(page.getByText("Consiliul Județean Sibiu")).toBeVisible();
 });
 
 // Pe telefon: meniul ☰ se deschide și filtrele listelor sunt ascunse până le ceri.
@@ -110,7 +116,20 @@ test("telefon: meniu și filtre strânse", async ({ page }) => {
   await page.goto("/firme");
   await expect(page.getByLabel("Denumire sau CUI")).toBeHidden();
   await page.getByText("Meniu", { exact: true }).click();
-  await expect(page.getByRole("navigation", { name: "Navigare principală (telefon)" }).getByRole("link", { name: "ONG-uri" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Navigare principală (telefon)" }).getByRole("link", { name: "Oportunități" })).toBeVisible();
   await page.getByText("Filtre și căutare").click();
   await expect(page.getByLabel("Denumire sau CUI")).toBeVisible();
+});
+
+// Localitatea: de pe prima pagină la pagina localității, cu povești și acțiuni.
+test("localitate: povești, instituții, cerere 544", async ({ page }) => {
+  await page.goto("/localitati");
+  await page.locator("main ul li a").first().click();
+  await expect(page).toHaveURL(/\/localitate\//);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("au cheltuit");
+  await expect(page.getByRole("heading", { name: /^Instituțiile din/ })).toBeVisible();
+  await page.goto("/institutii");
+  await page.locator("main ul li a").first().click();
+  await page.getByRole("button", { name: "Scrie cererea" }).click();
+  await expect(page.getByLabel("Textul cererii")).toContainText("Legii nr. 544/2001");
 });

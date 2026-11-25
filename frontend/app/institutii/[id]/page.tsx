@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AskBox } from "@/components/actions";
 import { ExplainBox, SubscribeForm } from "@/components/forms";
 import { CategoryChart, YearChart } from "@/components/charts";
 import { SyntheticBadge } from "@/components/data-banner";
@@ -135,6 +136,16 @@ export default async function AuthorityPage({ params }: { params: { id: string }
       </section>
 
       <SubscribeForm targetType="authority" targetKey={String(a.id)} label={a.name} />
+      <AskBox
+        institution={a.name}
+        subject={`achizițiile și cheltuielile ${a.name}`}
+        questions={[
+          "Programul anual al achizițiilor publice pentru anul în curs.",
+          "Lista contractelor de achiziție publică încheiate în ultimele 12 luni, cu valoarea și furnizorul.",
+          "Bugetul aprobat pentru anul în curs și execuția bugetară la zi.",
+          "Lista proiectelor de investiții în derulare și stadiul lor.",
+        ]}
+      />
     </div>
   );
 }

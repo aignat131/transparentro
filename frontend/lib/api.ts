@@ -258,6 +258,7 @@ export type Meta = {
   categories: string[];
   signal_types: { code: string; label: string }[];
   domains?: { key: string; label: string }[];
+  population?: number | null;
 };
 
 export type ProcedureItem = {
@@ -297,4 +298,17 @@ export type SpendingReport = {
   ngo_contracts: number;
   direct_awards_ron: string;
   eu_funded_ron: string;
+};
+
+export type Locality = { slug: string; name: string; authorities: number; total_ron: string; contracts: number };
+
+export type UpcomingItem = {
+  authority: AuthorityRef;
+  category: string;
+  cpv_prefix: string;
+  month: number;
+  month_name: string;
+  years: number[];
+  typical_value_ron: string | null;
+  last_title: string | null;
 };
